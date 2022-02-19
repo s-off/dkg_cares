@@ -1,0 +1,63 @@
+---
+title: "DKG_CARES"
+author: "JS"
+date: "02 01 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Data
+
+```{r import and subset data, echo=FALSE}
+library(haven)
+library(tidyverse)
+
+setwd("c:/Users/Soff/Google Drive/ProgramFiles/R Studio/01 DKG CARES_R")
+
+MCB <- read_spss("data/SUFRSDLV17MCB.sav")
+
+KOB <- read_spss("data/SUFRSDLV17KOB.sav")
+
+### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
+
+cancer_CASES_MCB <- MCB %>% 
+  filter(mcdggr == 26,                           # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
+         mcdg1_icd %in% c(7:31)) %>%             # 1. med. Entlassungsdiagnose ICD-10: C00-96
+  mutate(RehaStart=mcbemsj*12+mcbemsm) %>%       # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
+  arrange(case, RehaStart) %>% 
+  distinct(case, .keep_all = TRUE)
+
+### Zusammenführung von MCB- und KOB-Daten für alle Krebspatienten: Inner join cancer_IDs (MCB selection) with KOB
+
+cancer_CASES_MCB_KOB <- inner_join(cancer_CASES_MCB, KOB, by = "case")
+
+### Erstellen der Variablen
+
+final_CARES <- cancer_CASES_MCB_KOB %>% 
+  mutate(
+    AlterRehaStart = case_when(
+      gbja > 0 ~ mcbemsj-gbja),
+    Geschlecht = case_when(
+      sex == 1 ~ "m",
+      sex == 2 ~ "f")
+    )
+
+```
+
+## Tables
+```{r tables, echo=FALSE}
+x1 <- final_CARES %>% 
+  select(AlterRehaStart, Geschlecht)
+
+library(gtsummary)
+tbl_summary(x1)
+
+
+```
+
+

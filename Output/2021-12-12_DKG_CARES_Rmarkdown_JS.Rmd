@@ -1,0 +1,25 @@
+---
+title: "DKG_CARES"
+author: "JS"
+date: "12 12 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Data
+
+```{r import data, echo=FALSE}
+MCB <- read_spss("data/SUFRSDLV17MCB.sav")
+
+KOB <- read_spss("data/SUFRSDLV17KOB.sav")
+```
+
+## Including Plots
+
+```{r}
+stargazer(mcmsat, type = "html", summary = FALSE, out = "Bewilligte Maßnahmeart nach Diagnoseschlüssel")
+
+```
