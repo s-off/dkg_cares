@@ -1,0 +1,41 @@
+---
+title: "Rehabilitation nach Tumorerkrankungen: Sekundärdatenanalyse zur Rückkehr von Krebspatient:innen in den Beruf, 2010–2017"
+author: "Johannes Soff"
+date: "20 2 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+```
+
+# Methode
+## Datenbestandsbeschreibung
+Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010–2017“ der Deutschen Rentenversicherung verwendet. Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen. Er umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen).
+Eingeschlossen wurden Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010–2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang).
+Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet (mit geringfügigen Abweichungen, z.B. bei der Nachmeldung von Todesfällen sind Daten auch 9 Jahre nach dem ersten dokumentierten Ereignis verfügbar).
+
+
+
+
+
+```{r import and subset data, echo=FALSE}
+MCB <- read_spss("input/SUFRSDLV17MCB.sav")
+KOB <- read_spss("input/SUFRSDLV17KOB.sav")
+BYB <- read_spss("input/SUFRSDLV17BYB.sav")
+
+
+
+```
+
+## Tabelle 1
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

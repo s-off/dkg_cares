@@ -4,12 +4,12 @@
 
 # Packages #
 
-install.packages("haven")
-install.packages("tidyverse")
-install.packages("stargazer")
-install.packages("ggplot2")
-install.packages("knitr")
-install.packages("gtsummary")
+# install.packages("haven")
+# install.packages("tidyverse")
+# install.packages("stargazer")
+# install.packages("ggplot2")
+# install.packages("knitr")
+# install.packages("gtsummary")
 
 library(haven)
 library(tidyverse)
@@ -31,20 +31,11 @@ BYB <- read_spss("input/SUFRSDLV17BYB.sav")
 cancer_CASES_MCB <- MCB %>% 
   filter(mcdggr == 26,                           # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
          mcdg1_icd %in% c(7:31),                 # 1. med. Entlassungsdiagnose ICD-10: C00-96
-         mcmsat %in% c(31,32)) %>%               # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach § 15 SGB VI oder nach § 31 Abs. 1 Nr. 2 SGB VI
+         mcmsat %in% c(31,32),                   # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach § 15 SGB VI oder nach § 31 Abs. 1 Nr. 2 SGB VI
+         mceafo == 1) %>%                        # Entlassungsform: regulär
   mutate(RehaStart=mcbemsj*12+mcbemsm) %>%       # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
   arrange(case, RehaStart) %>% 
   distinct(case, .keep_all = TRUE)
-
-  ## Rehabeginn abhängig vom Monat. Um Neujahr weniger Rehaantritte (Teilweise bis zu 50 %).
-      ## breaks=96 weil 8 Jahre = 96 Monate
-            # hist(cancer_CASES_MCB$RehaStart, breaks=96)
-            # 
-            # RehaBeginnMonat <- cancer_CASES_MCB_KOB %>% 
-            #   count(RehaStart, mcbemsm, wt=korrektur)
-            # 
-            # ggplot(RehaBeginnMonat, aes( RehaStart, n, colour = mcbemsm) ) +
-            #   geom_point( ) + geom_line( )
 
 
 ### Zusammenführung von MCB- und KOB-Daten für alle Krebspatienten: Inner join cancer_IDs (MCB selection) with KOB
@@ -72,7 +63,7 @@ final_CARES <- cancer_CASES_MCB_KOB %>%
       # Reha-Antrag handelt (§ 116 SGB VI). D. h. die Reha-Leistung erfolgt entweder nach
       # Rentenantraganstellung oder nachdem ein Rentenantrag abgelehnt wurde oder bei
       # laufendem Bezug einer Rente wegen verminderter Erwerbsfähigkeit.
-  # () MCEAFO: ggf. nach Entlassungsform Unterscheiden
+  # (x) MCEAFO: ggf. nach Entlassungsform Unterscheiden
   # () gbja: n=14 haben "0"
   # () tlrt
                 x <- final_CARES %>%
@@ -83,16 +74,15 @@ final_CARES <- cancer_CASES_MCB_KOB %>%
                             count = n())
   # () Was mach ich mit Verstorbenen?
         # siehe Notion
-  # () 
-
-
-
+  # ()
+                
+              
 
 
                 
 
 x <- final_CARES %>% 
-  group_by(mcfas) %>% 
+  group_by(mceafo) %>% 
   summarise(count = n())
             
 view(x)
@@ -153,6 +143,18 @@ mcmsat <- cancer_IDs_KOB %>%
 stargazer(mcmsat, type = "html", summary = FALSE, out = "Bewilligte Maßnahmeart nach Diagnoseschlüssel")
 
 
+
+##### Notes #####
+
+## Rehabeginn abhängig vom Monat. Um Neujahr weniger Rehaantritte (Teilweise bis zu 50 %).
+## breaks=96 weil 8 Jahre = 96 Monate
+# hist(cancer_CASES_MCB$RehaStart, breaks=96)
+# 
+# RehaBeginnMonat <- cancer_CASES_MCB_KOB %>% 
+#   count(RehaStart, mcbemsm, wt=korrektur)
+# 
+# ggplot(RehaBeginnMonat, aes( RehaStart, n, colour = mcbemsm) ) +
+#   geom_point( ) + geom_line( )
 
 
 
