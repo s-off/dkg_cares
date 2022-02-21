@@ -13,12 +13,22 @@ library(tidyverse)
 
 # Methode
 ## Datenbestandsbeschreibung
-Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010–2017“ der Deutschen Rentenversicherung verwendet. Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen. Er umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen).
-Eingeschlossen wurden Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010–2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang).
+Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010–2017“ der Deutschen Rentenversicherung verwendet. Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen.
+Eingeschlossen sind Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010–2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang).
 Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet (mit geringfügigen Abweichungen, z.B. bei der Nachmeldung von Todesfällen sind Daten auch 9 Jahre nach dem ersten dokumentierten Ereignis verfügbar).
+Der Datenbestand umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen), wobei für die Analyse der angegebene Gewichtungsfaktor verwendet wurde, um von der Stichprobe auf die Zielpopulation zu schließen.
 
+Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deutschland ist, liegt die Altersspanne der Teilnehmer in diesem Datensatz typischerweise zwischen 16 und 66 Jahren. Eine detaillierte Beschreibung des Datensatzes, einschließlich des Stichprobendesigns, ist der Website des Forschungsdatenzentrum der Rentenversicherung zu entnehmen: <https://www.eservice-drv.de/FdzPortalWeb/dispcontent.do?id=main_fdz_forschung_laengsb_archiv&chmenu=ispvwNavEntriesByHierarchy34>.
 
+Aufgrund des Längsschnittdesigns mit Individualdaten von 2010–2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen.
 
+### Teilnehmer und Outcomes
+Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Für diese etwa 2,2 Millionen Patienten wurden die folgenden Ein- und Ausschlusskriterien definiert.
+
+### Einschlusskriterien
+Zunächst wurden 
+
+In einem ersten Schritt wurden Rehabilitationspatienten mit mit der Hauptdiagnose KHK oder ischämische Herzkrankheit (ICD10 I20.-I25.), die eine medizinische Rehabilitation abgeschlossen hatten (Phase II). Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
 
 
 ```{r import and subset data, echo=FALSE}

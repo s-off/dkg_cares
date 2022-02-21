@@ -1,8 +1,6 @@
-#################
-### DKG CARES ###
-#################
+###### DKG CARES #####
 
-# Packages #
+# Packages
 
 # install.packages("haven")
 # install.packages("tidyverse")
@@ -28,19 +26,24 @@ BYB <- read_spss("input/SUFRSDLV17BYB.sav")
 ### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
   ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
 
-cancer_CASES_MCB <- MCB %>% 
-  filter(mcdggr == 26,                           # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
-         mcdg1_icd %in% c(7:31),                 # 1. med. Entlassungsdiagnose ICD-10: C00-96
-         mcmsat %in% c(31,32),                   # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach § 15 SGB VI oder nach § 31 Abs. 1 Nr. 2 SGB VI
-         mceafo == 1) %>%                        # Entlassungsform: regulär
-  mutate(RehaStart=mcbemsj*12+mcbemsm) %>%       # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
+cancer_CASES_MCB_KOB <- MCB %>% 
+  filter(mcdggr == 26,                                # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
+         mcdg1_icd %in% c(7:31),                      # 1. med. Entlassungsdiagnose ICD-10: C00-96
+         mcmsat %in% c(31,32),                        # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach § 15 SGB VI oder nach § 31 Abs. 1 Nr. 2 SGB VI
+         mcpsgral %in% c(2,3),                        # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
+         mcumdt == 2,                                 # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
+         mceafo == 1) %>%                             # Entlassungsform: regulär
+  mutate(RehaStart = mcbemsj*12 + mcbemsm) %>%        # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
   arrange(case, RehaStart) %>% 
-  distinct(case, .keep_all = TRUE)
+  distinct(case, .keep_all = TRUE) %>% 
+  inner_join(KOB, by = "case") %>%                    # Zusammenführung von MCB- und KOB-Daten
+  mutate(GBZeitpkt = gbja*12 + gbmo,                  # Alter in Monaten
+         RTZeitpkt = rtbej*12 + rtbem,                # Rentenbeginn in Monaten
+         AlterRehaStart = RehaStart - GBZeitpkt) %>%  # Alter in Monaten bei Beginn der ersten med. Reha
+  filter(RTZeitpkt < RehaStart,                       # Keine Rente vor Beginn der ersten med. Reha
+         AlterRehaStart %in% c(216:804))              # Alter zwischen 18 und 67
+  
 
-
-### Zusammenführung von MCB- und KOB-Daten für alle Krebspatienten: Inner join cancer_IDs (MCB selection) with KOB
-
-cancer_CASES_MCB_KOB <- inner_join(cancer_CASES_MCB, KOB, by = "case")
 
 ### Erstellen der Variablen
 
@@ -55,7 +58,6 @@ final_CARES <- cancer_CASES_MCB_KOB %>%
 
 
 ### Anwendung der Ein- und Ausschlusskriterien
-  # ??? Alter < 18 Jahre? Kinder ausschließen?
   # ??? mcwhb==1
     # erste Episode = Wiederholungsleistung ausschließen (n=13, meist zu Beginn des Beobachtungszeitraums)
   # ??? mcrar
@@ -79,13 +81,26 @@ final_CARES <- cancer_CASES_MCB_KOB %>%
               
 
 
-                
+##### Count #####
 
-x <- final_CARES %>% 
-  group_by(mceafo) %>% 
+
+x <- cancer_CASES_MCB_KOB %>% 
+  group_by(TestRente) %>% 
   summarise(count = n())
-            
+
 view(x)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
