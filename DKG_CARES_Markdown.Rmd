@@ -2,13 +2,17 @@
 title: "Rehabilitation nach Tumorerkrankungen: Sekundärdatenanalyse zur Rückkehr von Krebspatient:innen in den Beruf, 2010–2017"
 author: "Johannes Soff"
 date: "20 2 2022"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(haven)
 library(tidyverse)
+library(gtsummary)
+library(labelled)
 ```
 
 # Methode
@@ -22,30 +26,105 @@ Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deu
 
 Aufgrund des Längsschnittdesigns mit Individualdaten von 2010–2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen.
 
+In einem ersten Schritt wurden Rehabilitationspatienten mit mit der Hauptdiagnose KHK oder ischämische Herzkrankheit (ICD10 I20.-I25.), die eine medizinische Rehabilitation abgeschlossen hatten (Phase II). Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
+
+
 ### Teilnehmer und Outcomes
 Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Für diese etwa 2,2 Millionen Patienten wurden die folgenden Ein- und Ausschlusskriterien definiert.
 
 ### Einschlusskriterien
-Zunächst wurden 
-
-In einem ersten Schritt wurden Rehabilitationspatienten mit mit der Hauptdiagnose KHK oder ischämische Herzkrankheit (ICD10 I20.-I25.), die eine medizinische Rehabilitation abgeschlossen hatten (Phase II). Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
 
 
 ```{r import and subset data, echo=FALSE}
 MCB <- read_spss("input/SUFRSDLV17MCB.sav")
 KOB <- read_spss("input/SUFRSDLV17KOB.sav")
-BYB <- read_spss("input/SUFRSDLV17BYB.sav")
+
+### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
+  ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
+
+cancer_CASES_MCB_KOB <- MCB %>% 
+  filter(mcdggr == 26,                                  # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
+         mcdg1_icd %in% c(7:31),                        # 1. med. Entlassungsdiagnose ICD-10: C00-96
+         mcmsat %in% c(31,32),                          # Bewilligte Ma?nahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
+         mcpsgral %in% c(2,3),                          # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
+         mcumdt == 2,                                   # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
+         mceafo == 1,                                   # Entlassungsform: regulär
+         mcwhb == 0) %>%                                # Ausschluss von Wiederholungsleistungen
+  mutate(RehaStart = mcbemsj*12 + mcbemsm) %>%          # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
+  arrange(case, RehaStart) %>% 
+  distinct(case, .keep_all = TRUE) %>%
+  inner_join(KOB, by = "case") %>%                      # Zusammenf?hrung von MCB- und KOB-Daten
+  mutate(GBZeitpkt = gbja*12 + gbmo,                    # Alter in Monaten
+         RTZeitpkt = rtbej*12 + rtbem,                  # Rentenbeginn in Monaten
+         TDZeitpkt = tddtj*12 + tddtm,                  # Todeszeitpunkt in Monaten
+         AlterRehaStart = RehaStart - GBZeitpkt,        # Alter in Monaten bei Beginn der ersten med. Reha
+         ZeitRehaStartTod = case_when(                  # Zeitraum zwischen Beginn der ersten med. Reha und dem Todeszeitpunkt in Monaten
+           tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart)) %>%
+  filter(RTZeitpkt < RehaStart,                         # Keine Rente vor Beginn der ersten med. Reha
+         AlterRehaStart %in% c(216:804),                # Alter zwischen 18 und 67
+         tddtj != 1992)                                 # Ausschluss Artefakt mit Todesjahr 1992
+ 
 
 
+### Erstellen der Variablen
+
+CARES_rtw <- cancer_CASES_MCB_KOB %>% 
+  mutate(
+    Geschlecht = case_when(
+      sex == 1 ~ "männlich",
+      sex == 2 ~ "weiblich"),
+    AlterRehaStart_Jahr = case_when(
+      gbja > 0 ~ mcbemsj-gbja),
+    Rente = if_else(
+      rtbej > 0, 1, 0),
+    Tod = if_else(
+      tddtj > 0, 1, 0)
+    )
 
 ```
 
 ## Tabelle 1
 
-You can also embed plots, for example:
+### Datensatzbeschreibung
 
 ```{r pressure, echo=FALSE}
-plot(pressure)
+### Datensatzbeschreibung
+
+CARES_rtw %>%
+  select(Geschlecht,
+         AlterRehaStart_Jahr,
+         mcfmsd,
+         Rente,
+         Tod,
+         mcaiufzt,
+         mcleft_lb,
+         mcleft_at,
+         ZeitRehaStartTod,
+         bd,
+         sb,
+         bb,
+         mcahb,
+         mcaqda,
+         mcstbf,
+         mcwhot_ostwest,
+         mcwhot_skt,
+         mcmsot_bland) %>% 
+  mutate_at(vars("bd", "sb", "bb", "mcahb", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at"), haven::as_factor) %>%
+  tbl_summary(
+    by = Geschlecht,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    label = list(
+      AlterRehaStart_Jahr ~ "Alter",
+      Rente ~ "Versichertenrente",
+      Tod ~ "Versterben im Beobachtungszeitraum",
+      ZeitRehaStartTod ~ "Zeitraum vom Beginn der ersten med. Reha und dem Todeszeitpunkt (Monate)",
+      mcaqda ~ "Zeitraum von der Antragstellung eines Antrags auf medizinische Rehabilitation bis zu seiner Bewilligung in Tagen"),
+    digits = list(
+      AlterRehaStart_Jahr ~ 1,
+      ZeitRehaStartTod ~ 0)) %>% 
+  add_overall() %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Variablenauswahl treffen
