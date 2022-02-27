@@ -3,14 +3,15 @@ title: "Rehabilitation nach Tumorerkrankungen: Sekundärdatenanalyse zur Rückke
 author: "Johannes Soff"
 date: "20 2 2022"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(haven)
 library(tidyverse)
+library(gt)
 library(gtsummary)
 library(labelled)
 ```
@@ -33,11 +34,15 @@ In einem ersten Schritt wurden Rehabilitationspatienten mit mit der Hauptdiagnos
 Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Für diese etwa 2,2 Millionen Patienten wurden die folgenden Ein- und Ausschlusskriterien definiert.
 
 ### Einschlusskriterien
-
+- Eingeschlossen wurden Patienten, die AUSWAHLKRITERIEN_EINSCHLUSS
+- Dabei wurden Patienten ausgeschlossen, die AUSSCHLUSSKRITERIEN_AUSSCHKUSS X (n=...), Y (n=...), Z (n=...)
+- Deskriptive Tabelle
 
 ```{r import and subset data, echo=FALSE}
+# Import Data
 MCB <- read_spss("input/SUFRSDLV17MCB.sav")
 KOB <- read_spss("input/SUFRSDLV17KOB.sav")
+BYB <- read_spss("input/SUFRSDLV17BYB.sav")
 
 ### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
   ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
@@ -45,7 +50,7 @@ KOB <- read_spss("input/SUFRSDLV17KOB.sav")
 cancer_CASES_MCB_KOB <- MCB %>% 
   filter(mcdggr == 26,                                  # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
          mcdg1_icd %in% c(7:31),                        # 1. med. Entlassungsdiagnose ICD-10: C00-96
-         mcmsat %in% c(31,32),                          # Bewilligte Ma?nahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
+         mcmsat %in% c(31,32),                          # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
          mcpsgral %in% c(2,3),                          # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
          mcumdt == 2,                                   # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
          mceafo == 1,                                   # Entlassungsform: regulär
@@ -53,20 +58,24 @@ cancer_CASES_MCB_KOB <- MCB %>%
   mutate(RehaStart = mcbemsj*12 + mcbemsm) %>%          # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
   arrange(case, RehaStart) %>% 
   distinct(case, .keep_all = TRUE) %>%
-  inner_join(KOB, by = "case") %>%                      # Zusammenf?hrung von MCB- und KOB-Daten
+  inner_join(KOB, by = "case") %>%                      # Zusammenführung von MCB- und KOB-Daten
   mutate(GBZeitpkt = gbja*12 + gbmo,                    # Alter in Monaten
          RTZeitpkt = rtbej*12 + rtbem,                  # Rentenbeginn in Monaten
          TDZeitpkt = tddtj*12 + tddtm,                  # Todeszeitpunkt in Monaten
          AlterRehaStart = RehaStart - GBZeitpkt,        # Alter in Monaten bei Beginn der ersten med. Reha
+         ZeitRehaStartRente = case_when(                # Zeitraum zwischen Beginn der ersten med. Reha und dem Rentenbeginn in Monaten
+           rtbej %in% c(1:9998) ~ RTZeitpkt - RehaStart),
          ZeitRehaStartTod = case_when(                  # Zeitraum zwischen Beginn der ersten med. Reha und dem Todeszeitpunkt in Monaten
-           tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart)) %>%
-  filter(RTZeitpkt < RehaStart,                         # Keine Rente vor Beginn der ersten med. Reha
+           tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart),
+         RTvorReha = if_else(
+           ZeitRehaStartRente < 0, 1, 0)) %>%
+  filter(!RTvorReha %in% c(1),                          # Keine Rente vor Beginn der ersten med. Reha
          AlterRehaStart %in% c(216:804),                # Alter zwischen 18 und 67
          tddtj != 1992)                                 # Ausschluss Artefakt mit Todesjahr 1992
- 
 
 
-### Erstellen der Variablen
+
+### Erstellen/Bearbeiten der Variablen
 
 CARES_rtw <- cancer_CASES_MCB_KOB %>% 
   mutate(
@@ -75,11 +84,11 @@ CARES_rtw <- cancer_CASES_MCB_KOB %>%
       sex == 2 ~ "weiblich"),
     AlterRehaStart_Jahr = case_when(
       gbja > 0 ~ mcbemsj-gbja),
-    Rente = if_else(
-      rtbej > 0, 1, 0),
     Tod = if_else(
       tddtj > 0, 1, 0)
-    )
+    ) %>%
+  remove_value_labels(mcdg1_icd = c(1:6, 32:999)) # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe - Behält nur die lables für mmcdg1_icd %in% c(7:31), siehe Subseterstellung
+
 
 ```
 
@@ -94,12 +103,14 @@ CARES_rtw %>%
   select(Geschlecht,
          AlterRehaStart_Jahr,
          mcfmsd,
-         Rente,
+         mcdg1_icd,
+         tlrt,
+         ZeitRehaStartRente,
          Tod,
+         ZeitRehaStartTod,
          mcaiufzt,
          mcleft_lb,
          mcleft_at,
-         ZeitRehaStartTod,
          bd,
          sb,
          bb,
@@ -109,19 +120,21 @@ CARES_rtw %>%
          mcwhot_ostwest,
          mcwhot_skt,
          mcmsot_bland) %>% 
-  mutate_at(vars("bd", "sb", "bb", "mcahb", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at"), haven::as_factor) %>%
+  mutate_at(vars("bd", "sb", "bb", "mcahb", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at", "mcdg1_icd", "tlrt"), haven::as_factor) %>%
   tbl_summary(
     by = Geschlecht,
     statistic = all_continuous() ~ "{mean} ({sd})",
     label = list(
-      AlterRehaStart_Jahr ~ "Alter",
-      Rente ~ "Versichertenrente",
+      AlterRehaStart_Jahr ~ "Alter bei Beginn der ersten Rehabilitationsleistung",
+      mcdg1_icd ~ "Medizinische Entlassungsdiagnose der Rehabilitation",
+      ZeitRehaStartRente ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Rentenbeginn in Monaten",
       Tod ~ "Versterben im Beobachtungszeitraum",
-      ZeitRehaStartTod ~ "Zeitraum vom Beginn der ersten med. Reha und dem Todeszeitpunkt (Monate)",
+      ZeitRehaStartTod ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Todeszeitpunkt in Monaten",
       mcaqda ~ "Zeitraum von der Antragstellung eines Antrags auf medizinische Rehabilitation bis zu seiner Bewilligung in Tagen"),
     digits = list(
       AlterRehaStart_Jahr ~ 1,
-      ZeitRehaStartTod ~ 0)) %>% 
+      ZeitRehaStartTod ~ 0),
+    missing = "no") %>% 
   add_overall() %>% 
   modify_header(label = "**Variable**") %>% 
   bold_labels()
