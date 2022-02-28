@@ -1,10 +1,12 @@
 ---
 title: "Rehabilitation nach Tumorerkrankungen: Sekundärdatenanalyse zur Rückkehr von Krebspatient:innen in den Beruf, 2010–2017"
 author: "Johannes Soff"
-date: "20 2 2022"
+date: "28 2 2022"
 output:
   html_document: default
   word_document: default
+  pdf_document: default
+bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -14,64 +16,125 @@ library(tidyverse)
 library(gt)
 library(gtsummary)
 library(labelled)
+
+## gtsummary Theme
+theme_gtsummary_journal(journal = "jama")
+
+theme_gtsummary_language(
+  language = c("de"),
+  decimal.mark = ",",
+  big.mark = ".",
+  iqr.sep = NULL,
+  ci.sep = NULL,
+  set_theme = TRUE
+)
 ```
 
 # Methode
-## Datenbestandsbeschreibung
-Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010–2017“ der Deutschen Rentenversicherung verwendet. Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen.
-Eingeschlossen sind Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010–2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang).
-Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet (mit geringfügigen Abweichungen, z.B. bei der Nachmeldung von Todesfällen sind Daten auch 9 Jahre nach dem ersten dokumentierten Ereignis verfügbar).
-Der Datenbestand umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen), wobei für die Analyse der angegebene Gewichtungsfaktor verwendet wurde, um von der Stichprobe auf die Zielpopulation zu schließen.
 
-Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deutschland ist, liegt die Altersspanne der Teilnehmer in diesem Datensatz typischerweise zwischen 16 und 66 Jahren. Eine detaillierte Beschreibung des Datensatzes, einschließlich des Stichprobendesigns, ist der Website des Forschungsdatenzentrum der Rentenversicherung zu entnehmen: <https://www.eservice-drv.de/FdzPortalWeb/dispcontent.do?id=main_fdz_forschung_laengsb_archiv&chmenu=ispvwNavEntriesByHierarchy34>.
+### Datengrundlage
 
-Aufgrund des Längsschnittdesigns mit Individualdaten von 2010–2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen.
+Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010--2017" der Deutschen Rentenversicherung verwendet . Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen. Eingeschlossen sind Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010--2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang). Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet. Der Datenbestand umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen), wobei für die Analyse der angegebene Gewichtungsfaktor verwendet wurde, um von der Stichprobe auf die Zielpopulation zu schließen.
 
-In einem ersten Schritt wurden Rehabilitationspatienten mit mit der Hauptdiagnose KHK oder ischämische Herzkrankheit (ICD10 I20.-I25.), die eine medizinische Rehabilitation abgeschlossen hatten (Phase II). Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
+Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deutschland ist, liegt die Altersspanne der Teilnehmer:innen in diesem Datensatz typischerweise zwischen 16 und 66 Jahren. Eine detaillierte Beschreibung des Datensatzes, einschließlich des Stichprobendesigns, kann dem Codeplan des Forschungsdatenzentrums entnommen werden [@forschungsdatenzentrumderrentenversicherung2020].
 
+Aufgrund des Längsschnittdesigns mit Individualdaten von 2010--2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen.
 
-### Teilnehmer und Outcomes
-Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Für diese etwa 2,2 Millionen Patienten wurden die folgenden Ein- und Ausschlusskriterien definiert.
+### Teilnehmer:innen und Outcomes
 
-### Einschlusskriterien
-- Eingeschlossen wurden Patienten, die AUSWAHLKRITERIEN_EINSCHLUSS
-- Dabei wurden Patienten ausgeschlossen, die AUSSCHLUSSKRITERIEN_AUSSCHKUSS X (n=...), Y (n=...), Z (n=...)
-- Deskriptive Tabelle
+Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Im Anschluss wurden die entsprechenden Daten über Leistungen zur Teilhabe am Arbeitsleben und dem Versicherungsverhältnis sowie den geleisteten Beiträgen und Beitragszeiten ergänzt. Für diese etwa 2,2 Millionen Patient:innen wurden die folgenden Ein- und Ausschlusskriterien definiert.
+
+### Ein- und Ausschlusskriterien
+
+In einem ersten Schritt wurden alle Rehabilitationspatient:innen im Alter zwischen 18 und 67 Jahren, mit einer Bösartigen Neubildungen als Hauptdiagnose (ICD-10 C00.-C97.) eingeschlossen, die erstmalig eine medizinische Rehabilitation abgeschlossen hatten (Phase II).
+
+Personen, die vor Beginn der Phase II der Rehabilitation bereits eine Rente erhielten, wurden ausgeschlossen (n = 7.407). Ebenso wurden Personen ausgeschlossen, die die Rehabilitationsphase II aufgrund von medizinischen Problemen oder anderen Gründen nicht regulär beendeten (n = 3.829).
+
+Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
 
 ```{r import and subset data, echo=FALSE}
 # Import Data
+
 MCB <- read_spss("input/SUFRSDLV17MCB.sav")
 KOB <- read_spss("input/SUFRSDLV17KOB.sav")
 BYB <- read_spss("input/SUFRSDLV17BYB.sav")
+BFB <- read_spss("input/SUFRSDLV17BFB.sav")
 
 ### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
   ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
 
 cancer_CASES_MCB_KOB <- MCB %>% 
-  filter(mcdggr == 26,                                  # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
-         mcdg1_icd %in% c(7:31),                        # 1. med. Entlassungsdiagnose ICD-10: C00-96
-         mcmsat %in% c(31,32),                          # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
-         mcpsgral %in% c(2,3),                          # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
-         mcumdt == 2,                                   # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
-         mceafo == 1,                                   # Entlassungsform: regulär
-         mcwhb == 0) %>%                                # Ausschluss von Wiederholungsleistungen
-  mutate(RehaStart = mcbemsj*12 + mcbemsm) %>%          # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
+  filter(
+    # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
+    mcdggr == 26,
+    
+    # 1. med. Entlassungsdiagnose ICD-10: C00-96
+    mcdg1_icd %in% c(7:31),
+    
+    # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
+    mcmsat %in% c(31,32),
+    
+    # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
+    mcpsgral %in% c(2,3),
+    
+    # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
+    mcumdt == 2,
+    
+    # Entlassungsform: regulär
+    mceafo == 1,
+    
+    # Ausschluss von Wiederholungsleistungen
+    mcwhb == 0
+    
+    ) %>%
+  
+  # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
+  mutate(
+    RehaStart = mcbemsj*12 + mcbemsm) %>%
   arrange(case, RehaStart) %>% 
   distinct(case, .keep_all = TRUE) %>%
-  inner_join(KOB, by = "case") %>%                      # Zusammenführung von MCB- und KOB-Daten
-  mutate(GBZeitpkt = gbja*12 + gbmo,                    # Alter in Monaten
-         RTZeitpkt = rtbej*12 + rtbem,                  # Rentenbeginn in Monaten
-         TDZeitpkt = tddtj*12 + tddtm,                  # Todeszeitpunkt in Monaten
-         AlterRehaStart = RehaStart - GBZeitpkt,        # Alter in Monaten bei Beginn der ersten med. Reha
-         ZeitRehaStartRente = case_when(                # Zeitraum zwischen Beginn der ersten med. Reha und dem Rentenbeginn in Monaten
-           rtbej %in% c(1:9998) ~ RTZeitpkt - RehaStart),
-         ZeitRehaStartTod = case_when(                  # Zeitraum zwischen Beginn der ersten med. Reha und dem Todeszeitpunkt in Monaten
-           tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart),
-         RTvorReha = if_else(
-           ZeitRehaStartRente < 0, 1, 0)) %>%
-  filter(!RTvorReha %in% c(1),                          # Keine Rente vor Beginn der ersten med. Reha
-         AlterRehaStart %in% c(216:804),                # Alter zwischen 18 und 67
-         tddtj != 1992)                                 # Ausschluss Artefakt mit Todesjahr 1992
+  
+  # Zusammenführen von MCB- und KOB-Daten
+  inner_join(KOB, by = "case") %>%
+  
+  mutate(
+    # Alter in Monaten
+    GBZeitpkt = gbja*12 + gbmo,
+    
+    # Rentenbeginn in Monaten
+    RTZeitpkt = rtbej*12 + rtbem,
+    
+    # Todeszeitpunkt in Monaten
+    TDZeitpkt = tddtj*12 + tddtm,
+    
+    # Alter in Monaten bei Beginn der ersten med. Reha
+    AlterRehaStart = RehaStart - GBZeitpkt,
+    
+    # Zeitraum zwischen Beginn der ersten med. Reha und dem Rentenbeginn in Monaten
+    ZeitRehaStartRente = case_when(
+      rtbej %in% c(1:9998) ~ RTZeitpkt - RehaStart),
+    
+    # Zeitraum zwischen Beginn der ersten med. Reha und dem Todeszeitpunkt in Monaten
+    ZeitRehaStartTod = case_when(
+      tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart),
+    
+    # Bezug einer Rente vor der Beginn der ersten med. Reha
+    RTvorReha = if_else(
+      ZeitRehaStartRente < 0, 1, 0)
+    
+    ) %>%
+  
+  filter(
+    # Keine Rente vor Beginn der ersten med. Reha
+    !RTvorReha %in% c(1),
+    
+    # Alter zwischen 18 und 67
+    AlterRehaStart %in% c(216:804),
+    
+    # Ausschluss Artefakt mit Todesjahr 1992
+    tddtj != 1992
+    
+    )
 
 
 
@@ -82,21 +145,60 @@ CARES_rtw <- cancer_CASES_MCB_KOB %>%
     Geschlecht = case_when(
       sex == 1 ~ "männlich",
       sex == 2 ~ "weiblich"),
+    
     AlterRehaStart_Jahr = case_when(
       gbja > 0 ~ mcbemsj-gbja),
+    
     Tod = if_else(
-      tddtj > 0, 1, 0)
+      tddtj > 0, 1, 0),
+    
+    # bd (alte Berichtform) umcodieren in sb (neue Berichtform)
+    sb = replace(sb, bd %in% c(3:6), 4),
+    
+    # Variable: psychische Erkrankung (ICD-10 F Diagnose) bei Beginn der ersten med. Reha
+    psychischeErkrankung = if_else(
+      mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0)
+    
     ) %>%
-  remove_value_labels(mcdg1_icd = c(1:6, 32:999)) # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe - Behält nur die lables für mmcdg1_icd %in% c(7:31), siehe Subseterstellung
-
+  
+  # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe - Behält nur die lables für mmcdg1_icd %in% c(7:31), siehe Subseterstellung
+  remove_value_labels(mcdg1_icd = c(1:6, 32:999))
 
 ```
 
-## Tabelle 1
+### Statistische Analyse
 
-### Datensatzbeschreibung
+-   Adjustierung der Ergebnisse über Korrekturgewicht
 
-```{r pressure, echo=FALSE}
+    -   Alle Analysen wurden unter Verwendung des, im SUF vorgesehenen Gewichtungsfaktors durchgeführt, um das disproportionale Samplingverfahren zu berücksichtigen.
+
+-   R Studio + packages zitieren
+
+    -   Alle Analysen wurden mit der Programmiersprache R unter Verwendung der folgenden Softwarepakete durchgeführt:
+
+        -   {tidyverse} von [@wickham2019]
+
+        -   {gt} von [@iannone2022]
+
+        -   {gtsummary} von [@sjoberg2021]
+
+        -   {labelled} von [@larmarange2022]
+
+-   Cox-Hazard-Regression
+
+# Ergebnisse
+
+Nach Anwendung der Ein- und Ausschlusskriterien verblieben 83.538 Patient:innen im endgültigen Datensatz. Davon erhielten XX eine medizinische Empfehlung zur Durchführung einer Leistungen zur Teilhabe am Arbeitsleben (LTA-III) in der Phase III der Rehabilitation und XX nahmen an der LTA-III teil.
+
+Im Verlauf des Studienzeitraums...
+
+-   Mortalität
+
+-   Rente (EM, Alter)
+
+### Tabelle 1
+
+```{r table 1, echo=FALSE}
 ### Datensatzbeschreibung
 
 CARES_rtw %>%
@@ -104,32 +206,55 @@ CARES_rtw %>%
          AlterRehaStart_Jahr,
          mcfmsd,
          mcdg1_icd,
+         psychischeErkrankung,    # Mediator
+         mcdg1_erg,               # Mediator
          tlrt,
          ZeitRehaStartRente,
          Tod,
          ZeitRehaStartTod,
-         mcaiufzt,
-         mcleft_lb,
-         mcleft_at,
-         bd,
-         sb,
-         bb,
+         sb,                      # Mediator
+         mcsvbh,                  # Mediator
+         mcbfkl_gr,               # Mediator
+         mcaivoaq,
+         mcaiufzt,                # Mediator
+         mcaift,                  # Mediator
+         mcleft_lb,               # Mediator
+         mcleft_at,               # Mediator
+         mcstbf,                  # Mediator
          mcahb,
+         mcakk,                   # Mediator
          mcaqda,
-         mcstbf,
+         mc3voncms,
+         mc5voncms,
+         mc6voncms,
+         mc7voncms,
+         mc8voncms,
+         mc9voncms,
+         mc10voncms,
+         mc11voncms,
+         mc12voncms,
+         mc1pqle,
+         mc2pqle,
+         mc3pqle,
+         mc4pqle,
+         mc5pqle,
+         mc6pqle,
+         mc7pqle,
          mcwhot_ostwest,
          mcwhot_skt,
          mcmsot_bland) %>% 
-  mutate_at(vars("bd", "sb", "bb", "mcahb", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at", "mcdg1_icd", "tlrt"), haven::as_factor) %>%
+  mutate_at(vars("sb", "mcsvbh", "mcbfkl_gr", "mcaivoaq", "mcaift", "mcahb", "mcakk", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at", "mcdg1_icd", "mcdg1_erg", "tlrt", "mc3voncms", "mc5voncms", "mc6voncms", "mc7voncms", "mc8voncms", "mc9voncms", "mc10voncms", "mc11voncms", "mc12voncms", "mc1pqle", "mc2pqle", "mc3pqle", "mc4pqle", "mc5pqle", "mc6pqle", "mc7pqle"), haven::as_factor) %>%
   tbl_summary(
     by = Geschlecht,
     statistic = all_continuous() ~ "{mean} ({sd})",
     label = list(
       AlterRehaStart_Jahr ~ "Alter bei Beginn der ersten Rehabilitationsleistung",
+      psychischeErkrankung ~ "Psychische oder Verhaltensstörungen nach ICD-10 als weitere medizinische Entlassungsdiagnose",
       mcdg1_icd ~ "Medizinische Entlassungsdiagnose der Rehabilitation",
       ZeitRehaStartRente ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Rentenbeginn in Monaten",
       Tod ~ "Versterben im Beobachtungszeitraum",
       ZeitRehaStartTod ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Todeszeitpunkt in Monaten",
+      mcbfkl_gr ~ "Berufsgruppenklassifikation nach dem Statistikband zur Rehabilitation der Rentenversicherung (Grundlage ist die KldB 88)",
       mcaqda ~ "Zeitraum von der Antragstellung eines Antrags auf medizinische Rehabilitation bis zu seiner Bewilligung in Tagen"),
     digits = list(
       AlterRehaStart_Jahr ~ 1,
@@ -137,6 +262,7 @@ CARES_rtw %>%
     missing = "no") %>% 
   add_overall() %>% 
   modify_header(label = "**Variable**") %>% 
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Geschlecht**") %>% 
   bold_labels()
 ```
 
