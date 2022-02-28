@@ -52,7 +52,7 @@ Personen, die vor Beginn der Phase II der Rehabilitation bereits eine Rente erhi
 
 Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
 
-```{r import and subset data, echo=FALSE}
+```{r import and subset data, echo=TRUE}
 # Import Data
 
 MCB <- read_spss("input/SUFRSDLV17MCB.sav")
@@ -198,7 +198,7 @@ Im Verlauf des Studienzeitraums...
 
 ### Tabelle 1
 
-```{r table 1, echo=FALSE}
+```{r table 1, echo=TRUE}
 ### Datensatzbeschreibung
 
 CARES_rtw %>%

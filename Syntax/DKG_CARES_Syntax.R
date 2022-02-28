@@ -8,6 +8,7 @@
 # install.packages("gtsummary")
 # install.packages("labelled")
 
+library(haven)
 library(tidyverse)
 library(gt)
 library(gtsummary)
@@ -38,6 +39,7 @@ KOB <- read_spss("input/SUFRSDLV17KOB.sav")
 BYB <- read_spss("input/SUFRSDLV17BYB.sav")
 
 BFB <- read_spss("input/SUFRSDLV17BFB.sav")
+
 
 ### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
   ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
@@ -77,6 +79,9 @@ cancer_CASES_MCB_KOB <- MCB %>%
   inner_join(KOB, by = "case") %>%
   
   mutate(
+    # Ende der medizinischen Reha-Leistung in Monaten
+    RehaEnde = mcenmsj*12 + mcenmsm,
+    
     # Alter in Monaten
     GBZeitpkt = gbja*12 + gbmo,
     
@@ -111,15 +116,44 @@ cancer_CASES_MCB_KOB <- MCB %>%
     AlterRehaStart %in% c(216:804),
     
     # Ausschluss Artefakt mit Todesjahr 1992
-    tddtj != 1992
+    tddtj != 1992,
+    
+    # Ausschluss von Personen mit einer einer Dauer der medizinischen Reha-Leistung von über 6 Wochen
+    mcdams < 43
     
     )
 
 
+### Zusammenführen von MCB-/KOB- und BFB-Daten
+
+## MCB Daten
+CasesForBFB <- cancer_CASES_MCB_KOB %>% 
+  select(case, RehaStart)
+
+## Episodenauswahl der BFB-Daten
+BFB_Episode <- BFB %>%
+  left_join(CasesForBFB, by = "case") %>% 
+  
+  # Beginn der LTA in Monaten
+  mutate(LTAStart = bfbemsj*12 + bfbemsm) %>% 
+  
+  # Auswahl des Subsets
+  filter(RehaStart > 1,
+         LTAStart > RehaStart) %>% 
+  
+  # Erste Episode wird durch LTASTart (Beginn der Leistungen zur Teilhabe am Arbeitsleben) identifiziert
+  arrange(case, LTAStart) %>% 
+  distinct(case, .keep_all = TRUE)
+
+## Join
+
+cancer_CASES_MCB_KOB_BFB <- cancer_CASES_MCB_KOB %>% 
+  left_join(BFB_Episode, by = "case")
+
 
 ### Erstellen/Bearbeiten der Variablen
 
-CARES_rtw <- cancer_CASES_MCB_KOB %>% 
+CARES_rtw <- cancer_CASES_MCB_KOB_BFB %>% 
   mutate(
     Geschlecht = case_when(
       sex == 1 ~ "männlich",
@@ -136,12 +170,17 @@ CARES_rtw <- cancer_CASES_MCB_KOB %>%
     
     # Variable: psychische Erkrankung (ICD-10 F Diagnose) bei Beginn der ersten med. Reha
     psychischeErkrankung = if_else(
-      mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0)
+      mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0),
+    
+    # Zeitraum zwischen Ende der ersten med. Reha und dem Beginn der Leistungen zur Teilhabe am Arbeitsleben
+    ZeitRehaEndeLTAStart = case_when(
+      LTAStart > 1 ~ LTAStart - RehaEnde)
     
     ) %>%
   
   # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe - Behält nur die lables für mmcdg1_icd %in% c(7:31), siehe Subseterstellung
   remove_value_labels(mcdg1_icd = c(1:6, 32:999))
+
 
 
 
@@ -212,11 +251,32 @@ CARES_rtw %>%
   bold_labels()
 
 
+### LTA Beschreibung - Tabelle 2
+
+CARES_rtw %>%
+  select(Geschlecht,
+         AlterRehaStart_Jahr,
+         mcfmsd,
+         mcdg1_icd) %>% 
+  mutate_at(vars("Var"), haven::as_factor) %>%
+  tbl_summary(
+    by = Geschlecht,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    label = list(
+      AlterRehaStart_Jahr ~ "Alter bei Beginn der ersten Rehabilitationsleistung"),
+    digits = list(
+      AlterRehaStart_Jahr ~ 1),
+    missing = "no") %>% 
+  add_overall() %>% 
+  modify_header(label = "**Variable**") %>% 
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Geschlecht**") %>% 
+  bold_labels()
 
 
 
 
 
+  
 
 
 
@@ -225,7 +285,7 @@ CARES_rtw %>%
 
 
 x <- CARES_rtw %>% 
-  group_by(mc2voncms) %>% 
+  group_by(mcdams) %>% 
   summarise(count = n())
 
 view(x)
