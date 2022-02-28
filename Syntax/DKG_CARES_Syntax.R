@@ -1,6 +1,6 @@
 ###### DKG CARES #####
 
-# Packages
+## Packages und Themeeinstellungen
 
 # install.packages("haven")
 # install.packages("tidyverse")
@@ -8,11 +8,26 @@
 # install.packages("gtsummary")
 # install.packages("labelled")
 
-library(haven)
 library(tidyverse)
 library(gt)
 library(gtsummary)
 library(labelled)
+
+## gtsummary Theme
+theme_gtsummary_journal(journal = "jama")
+
+theme_gtsummary_language(
+  language = c("de"),
+  decimal.mark = ",",
+  big.mark = ".",
+  iqr.sep = NULL,
+  ci.sep = NULL,
+  set_theme = TRUE
+)
+
+## Reset theme
+#reset_gtsummary_theme()
+
 
 # Import Data
 
@@ -196,20 +211,6 @@ CARES_rtw %>%
   modify_spanning_header(c("stat_1", "stat_2") ~ "**Geschlecht**") %>% 
   bold_labels()
 
-## Theme
-theme_gtsummary_journal(journal = "jama")
-
-theme_gtsummary_language(
-  language = c("de"),
-  decimal.mark = ",",
-  big.mark = ".",
-  iqr.sep = NULL,
-  ci.sep = NULL,
-  set_theme = TRUE
-)
-
-## Reset theme
-#reset_gtsummary_theme()
 
 
 
