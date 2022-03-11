@@ -1,11 +1,16 @@
 ---
 title: "Rehabilitation nach Tumorerkrankungen: Sekundärdatenanalyse zur Rückkehr von Krebspatient:innen in den Beruf, 2010–2017"
 author: "Johannes Soff"
-date: "28 2 2022"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  html_document: default
-  word_document: default
-  pdf_document: default
+  word_document:
+    toc: yes
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    number_sections: yes
+    keep_tex: yes
+font-size: 11pt
 bibliography: references.bib
 ---
 
@@ -13,11 +18,17 @@ bibliography: references.bib
 knitr::opts_chunk$set(echo = TRUE)
 library(haven)
 library(tidyverse)
+library(naniar)
 library(gt)
 library(gtsummary)
+library(kableExtra)
+library(flextable)
 library(labelled)
+library(survival)
+library(survminer)
 
 ## gtsummary Theme
+
 theme_gtsummary_journal(journal = "jama")
 
 theme_gtsummary_language(
@@ -28,145 +39,115 @@ theme_gtsummary_language(
   ci.sep = NULL,
   set_theme = TRUE
 )
+
+theme_gtsummary_compact(set_theme = TRUE, font_size = NULL)
+
+
 ```
+
+# Einleitung
+
+Jährlich werden in Deutschland etwa 500.000 Krebserkrankungen neu diagnostiziert. 45 Prozent aller Krebserkrankungen bei Männern und 57 Prozent bei Frauen treten im erwerbsfähigen Alter auf [@robertkoch-institut2019]. Verbesserungen in der Behandlung und Früherkennung von Krebs sowie die auf einem hohen Niveau verharrenden altersstandardisierten Inzidenzraten haben dazu geführt, dass immer mehr Menschen in Deutschland eine Krebserkrankung überleben [@becker2008; @robertkoch-institut2019]. In der Rehabilitation Krebserkrankter im erwerbsfähigen Alter stellt der Erhalt beziehungsweise die Rückgewinnung der Erwerbsfähigkeit („return to work", RTW) neben der Verbesserung der Lebensqualität und dem Vermeiden oder Reduzieren dauerhafter körperlicher und psychischer Beeinträchtigungen daher ein wichtiges Rehabilitationsziel dar [@delbrück2006; @mehnert2013; @reuss-borst2013]. Hierbei ist die Beschäftigung in Form der Berufstätigkeit wiederum selbst eine wichtige Komponente der Lebensqualität und kann Krebspatientient:innen ein Gefühl der Struktur geben sowie zur Teilhabe an sozialen Beziehungen beitragen [@banning2011; @boer2014; @rasmussen2008]. Aus einer gesellschaftlichen Perspektive ist es zudem vor dem Hintergrund der demographischen Entwicklung in Deutschland, wirtschaftlich erforderlich, Patient:innen zur Rückkehr in die Erwerbstätigkeit zu ermutigen, wann immer dies möglich ist [@ah2018].
+
+Bei Betrachtung dieses beruflichen Wiedereingliederungsprozesses zeigt sich, dass der berufliche Wiedereinstig für Krebspatient:innen erschwert ist und mit einem erhöhten Risiko zur frühzeitigen Berentung assoziiert [@deutschenrentenversicherungbund2018; @noeres2013]. Eine Reihe von Krebsarten wurde dabei mit einem höheren Risiko für Arbeitslosigkeit und Arbeitsplatzverlust in Verbindung gebracht. Zu diesen Krebsarten gehören Leberkarzinome, Bronchialkarzinome, fortgeschrittene Leukämie und Lymphome, Hirn- und ZNS-Tumore, Magen-Darm-Tumore, Pankreaskarzinome, Kopf-Hals-Karzinome sowie gynäkologische Tumorarten und Brustkrebs [@mehnert2011; @noeres2013].
+
+Die Internationale Klassifikation der Funktionsfähigkeit, Behinderung und Gesundheit (ICF) der Weltgesundheitsorganisation [@worldhealthorganization2001] stellt diesen spezifischen Zusammenhang zwischen dem Gesundheitszustand (nach ICD-10) und der Berufstätigkeit im Kapitel d8 „bedeutenden Lebensbereiche" als wichtigen Aspekt der Partizipation dar.
+
+Obwohl bisherige Studienergebnisse zahlreiche Prädiktoren zu RTW nach Tumorerkrankungen identifiziert haben [@wolvers2018; @islam2014; @mehnert2011; @spelten2002; @vanmuijen2013a], gibt es bisher nur begrenzte Erkenntnisse über die diagnosespezifischen Unterschiede in der RTW von Krebspatient:innen in Deutschland. Dies ist insbesondere wichtig, da in den vorhandenen Übersichtsarbeiten überwiegend spezielle Krebsdiagnosen oder heterogene, nicht differenzierbare Krebspatient:innengruppen betrachtet wurden. Auch stellt Deutschland bezogen auf die sozialrechtlichen Rahmenbedingungen, die psychoonkologische Versorgung mit Leistungen zur Teilhabe am Arbeitsleben und dem gesetzlichen Rentenversicherungssystem einen spezifischen Kontext für die (Wieder-)Aufnahme von Erwerbstätigkeit dar.
+
+## Zielsetzung
+
+Ziel dieser Arbeit ist es daher primärdiagnosespezifischen Unterschiede in der Wiederaufnahme einer beruflichen Erwerbstätigkeit bei Krebspatient:innen in Deutschland zu analysieren und darzustellen.
 
 # Methode
 
-### Datengrundlage
-
-Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010--2017" der Deutschen Rentenversicherung verwendet . Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält personenbezogene Daten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen. Eingeschlossen sind Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010--2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang). Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet. Der Datenbestand umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen), wobei für die Analyse der angegebene Gewichtungsfaktor verwendet wurde, um von der Stichprobe auf die Zielpopulation zu schließen.
-
-Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deutschland ist, liegt die Altersspanne der Teilnehmer:innen in diesem Datensatz typischerweise zwischen 16 und 66 Jahren. Eine detaillierte Beschreibung des Datensatzes, einschließlich des Stichprobendesigns, kann dem Codeplan des Forschungsdatenzentrums entnommen werden [@forschungsdatenzentrumderrentenversicherung2020].
-
-Aufgrund des Längsschnittdesigns mit Individualdaten von 2010--2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen.
-
-### Teilnehmer:innen und Outcomes
-
-Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Im Anschluss wurden die entsprechenden Daten über Leistungen zur Teilhabe am Arbeitsleben und dem Versicherungsverhältnis sowie den geleisteten Beiträgen und Beitragszeiten ergänzt. Für diese etwa 2,2 Millionen Patient:innen wurden die folgenden Ein- und Ausschlusskriterien definiert.
-
-### Ein- und Ausschlusskriterien
-
-In einem ersten Schritt wurden alle Rehabilitationspatient:innen im Alter zwischen 18 und 67 Jahren, mit einer Bösartigen Neubildungen als Hauptdiagnose (ICD-10 C00.-C97.) eingeschlossen, die erstmalig eine medizinische Rehabilitation abgeschlossen hatten (Phase II).
-
-Personen, die vor Beginn der Phase II der Rehabilitation bereits eine Rente erhielten, wurden ausgeschlossen (n = 7.407). Ebenso wurden Personen ausgeschlossen, die die Rehabilitationsphase II aufgrund von medizinischen Problemen oder anderen Gründen nicht regulär beendeten (n = 3.829).
-
-Im nächsten Schritt haben wir die EBRP-III mit der unsere Studienpopulation. Die Teilnahme musste innerhalb von sechs Monaten nach Abschluss der Phase-II-Rehabilitation beginnen.
-
-```{r import and subset data, echo=TRUE}
-# Import Data
-
-MCB <- read_spss("input/SUFRSDLV17MCB.sav")
-KOB <- read_spss("input/SUFRSDLV17KOB.sav")
-BYB <- read_spss("input/SUFRSDLV17BYB.sav")
-BFB <- read_spss("input/SUFRSDLV17BFB.sav")
-
-### Subset mit Cases, die im Berichtzeitraum eine medizinische Rehabilitation auf Grund einer Krebsdiagnose begonnen haben
-  ## Es wird nur die erste Episode (erste Rehabilitation auf Grund einer Krebsdiagnose betrachtet)
-
-cancer_CASES_MCB_KOB <- MCB %>% 
-  filter(
-    # Bewilligungsdiagnosengruppe: Neubildungen (ICD10-Nr. C00 - D48)
-    mcdggr == 26,
-    
-    # 1. med. Entlassungsdiagnose ICD-10: C00-96
-    mcdg1_icd %in% c(7:31),
-    
-    # Bewilligte Maßnahmeart: Ca(Krebs)-Reha-Leistung nach ? 15 SGB VI oder nach ? 31 Abs. 1 Nr. 2 SGB VI
-    mcmsat %in% c(31,32),
-    
-    # Art des Versicherungs- bzw. Rentnerstatus: Pflichtversicherter, freiwillig Versicherter
-    mcpsgral %in% c(2,3),
-    
-    # Umfang der Datenmeldung medizinische Rehabilitation: Reha-Leistung beendet, Datensatz vollständig
-    mcumdt == 2,
-    
-    # Entlassungsform: regulär
-    mceafo == 1,
-    
-    # Ausschluss von Wiederholungsleistungen
-    mcwhb == 0
-    
-    ) %>%
-  
-  # Erste Episode wird durch RehaStart (Beginn der medizinischen Reha-Leistung) identifiziert
-  mutate(
-    RehaStart = mcbemsj*12 + mcbemsm) %>%
-  arrange(case, RehaStart) %>% 
-  distinct(case, .keep_all = TRUE) %>%
-  
-  # Zusammenführen von MCB- und KOB-Daten
-  inner_join(KOB, by = "case") %>%
-  
-  mutate(
-    # Alter in Monaten
-    GBZeitpkt = gbja*12 + gbmo,
-    
-    # Rentenbeginn in Monaten
-    RTZeitpkt = rtbej*12 + rtbem,
-    
-    # Todeszeitpunkt in Monaten
-    TDZeitpkt = tddtj*12 + tddtm,
-    
-    # Alter in Monaten bei Beginn der ersten med. Reha
-    AlterRehaStart = RehaStart - GBZeitpkt,
-    
-    # Zeitraum zwischen Beginn der ersten med. Reha und dem Rentenbeginn in Monaten
-    ZeitRehaStartRente = case_when(
-      rtbej %in% c(1:9998) ~ RTZeitpkt - RehaStart),
-    
-    # Zeitraum zwischen Beginn der ersten med. Reha und dem Todeszeitpunkt in Monaten
-    ZeitRehaStartTod = case_when(
-      tddtj %in% c(1:9998) ~ TDZeitpkt - RehaStart),
-    
-    # Bezug einer Rente vor der Beginn der ersten med. Reha
-    RTvorReha = if_else(
-      ZeitRehaStartRente < 0, 1, 0)
-    
-    ) %>%
-  
-  filter(
-    # Keine Rente vor Beginn der ersten med. Reha
-    !RTvorReha %in% c(1),
-    
-    # Alter zwischen 18 und 67
-    AlterRehaStart %in% c(216:804),
-    
-    # Ausschluss Artefakt mit Todesjahr 1992
-    tddtj != 1992
-    
-    )
+```{r import and subset data, echo=FALSE}
 
 
-
-### Erstellen/Bearbeiten der Variablen
-
-CARES_rtw <- cancer_CASES_MCB_KOB %>% 
-  mutate(
-    Geschlecht = case_when(
-      sex == 1 ~ "männlich",
-      sex == 2 ~ "weiblich"),
-    
-    AlterRehaStart_Jahr = case_when(
-      gbja > 0 ~ mcbemsj-gbja),
-    
-    Tod = if_else(
-      tddtj > 0, 1, 0),
-    
-    # bd (alte Berichtform) umcodieren in sb (neue Berichtform)
-    sb = replace(sb, bd %in% c(3:6), 4),
-    
-    # Variable: psychische Erkrankung (ICD-10 F Diagnose) bei Beginn der ersten med. Reha
-    psychischeErkrankung = if_else(
-      mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0)
-    
-    ) %>%
-  
-  # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe - Behält nur die lables für mmcdg1_icd %in% c(7:31), siehe Subseterstellung
-  remove_value_labels(mcdg1_icd = c(1:6, 32:999))
 
 ```
 
+Die Methodik der Berichterstattung dieser Studie orientiert sich am "The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE)"-Statement für Beobachtungsstudien [@vonelm2007a].
+
+Der genutzte Scientific Use File ist für wissenschaftliche Einrichtungen auf Anfrage beim Forschungsdatenzentrum der Rentenversicherung erhältlich. Der für die Aufbereitung und Analyse der Daten genutzte Programmcode ist verfügbar unter: <https://github.com/s-off/dkg_cares>
+
+## Datengrundlage
+
+Für die vorliegende Analyse wurde der Scientific Use File (SUF) „Abgeschlossene Rehabilitationen 2010--2017" der Deutschen Rentenversicherung verwendet. Der Datenbestand basiert auf der Reha-Statistik-Datenbasis-Verlaufserhebung nach § 13 Abs. 1 RSVwV und § 4 RSVwV der gesetzlichen Rentenversicherung und enthält Individualdaten mit Angaben zu den Versicherten und deren anspruchsberechtigten Angehörigen. Eingeschlossen sind Personen mit einem der folgenden Merkmale im Beobachtungszeitraum (2010--2017): mindestens eine abgeschlossene Rehabilitationsleistung, bewilligte Rente oder Zugehörigkeit zu einer bestimmten demografischen Kohorte (Tod vor oder im Alter von 75 Jahren oder Zugehörigkeit zu einem bestimmten Geburtsjahrgang). Personen, deren Anträge auf Rehabilitation oder eine Rente endgültig abgelehnt wurden, sind ausgeschlossen. Für jedes Rehabilitations-, Renten- oder demografische Ereignis werden die einbezogenen Personen über einen Zeitraum von 8 Jahren beobachtet. Der Datenbestand umfasst insgesamt eine disproportionale Zufallsstichprobe von 20% aller Versicherten (N ≈ 3,7 Millionen), wobei für die Analyse der angegebene Gewichtungsfaktor verwendet wurde, um von der Stichprobe auf die Zielpopulation zu schließen.
+
+Da die DRV der Hauptzahler für Rehabilitationsleistungen Erwerbstätiger in Deutschland ist, liegt die Altersspanne der Teilnehmer:innen in diesem Datensatz typischerweise zwischen 16 und 66 Jahren. Eine detaillierte Beschreibung des Datensatzes, einschließlich des Stichprobendesigns, kann dem [Codeplan des Forschungsdatenzentrums](https://www.eservice-drv.de/FdzPortalWeb/getRessource.do?key=sufrsdlv17b_cdpln.pdf) entnommen werden [@forschungsdatenzentrumderrentenversicherung2020].
+
+Aufgrund des Längsschnittdesigns mit Individualdaten von 2010--2017 ist der SUF eine geeignete Quelle für die Analyse der Auswirkungen und zeitlichen Trends von Rehabilitationsleistungen und Rentenversicherungsbeiträgen.
+
+## Teilnehmer:innen und Merkmale
+
+Aus dem vollständigen Datensatz von 3,7 Millionen Versicherten wurden primär Daten über Leistungen zur medizinischen Rehabilitation für die Auswertung verwendet. Im Anschluss wurden die entsprechenden Daten über Leistungen zur Teilhabe am Arbeitsleben und dem Versicherungsverhältnis sowie den geleisteten Beiträgen und Beitragszeiten ergänzt. Informationen zu dokumentierten soziodemografischen Ereignissen nach Dezember 2017 wurden für die Analyse nicht berücksichtigt. Für die etwa 2,2 Millionen Patient:innen, die im Berichtszeitraum mindestens eine medizinische Rehabilitation beendeten, wurden die folgenden Ein- und Ausschlusskriterien definiert.
+
+### Ein- und Ausschlusskriterien
+
+In einem ersten Schritt wurden alle Rehabilitationspatient:innen im Alter zwischen 18 und 63 Jahren, mit einer folgenden bösartigen Neubildungen (BN) als Hauptdiagnose (ICD-10 C00.-C97.) eingeschlossen, die erstmalig eine medizinische Rehabilitation abgeschlossen hatten (Phase II):
+
+-   BN der Lippe, Mundhöhle, Pharynx (C00-14)
+
+-   BN Ösophagus, BN Magen (C15, C16)
+
+-   BN des Dünndarmes, Bösartige Neubildungen des Kolons (C17, C18)
+
+-   BN am Rektosigmoid, Übergang, BN des Rektums, BN des Anus und des Analkanals (C19, C20, C21)
+
+-   BN Atmungsorgane (C30-39)
+
+-   BN Brustdrüse (C50)
+
+-   BN der weiblichen Genitalorgane (C51-58)
+
+-   BN der männlichen Genitalorgane (C60-63)
+
+-   BN der Harnorgane (C64-68)
+
+-   BN des Auges, des Gehirns und sonstiger Teile des ZNS (C69-72)
+
+-   BN Leber, Gallengänge /-blase, Pankreas, sonstige Verdauungsorgane oder mehrere Lokalisationen
+
+-   Hodgkin-Krankheit (C81)
+
+-   Non-Hodgkin-Krankheiten (C82-90)
+
+-   Lymphatische, myeloische und sonstige Leukämie (C91-96)
+
+Die Auswahl der Diagnosen orientierte sich an @mehnert2011a.
+
+Der Zeitpunkt des Studieneintritts wurde durch das Datum der ersten Inanspruchnahme einer Rehabilitationsleistung der Phase II (REHA-II) bestimmt, was ein beliebiges Datum zwischen dem 1. Januar 2010 und dem 30. Juni 2016 gewesen sein kann. Hierdurch wurde eine Mindestbeobachtungszeit von 18 Monaten zu gewährleisten. Der Beobachtungszeitraum orientierte sich an der zeitlichen Begrenzung des Krankengelds nach § 48 Abs. 1 Nr. 1 SGB V von 78 Wochen. Die Alterslimitation von maximal 63 Jahren bei Beobachtungsbeginn, verhindert zudem eine Regelaltersrente nach § 33 Abs. 2 Nr. 1 SGB VI innerhalb von 18 Monaten nach Ende der REHA-II, wodurch für alle Patient:innen die Möglichkeit zur Wiederaufnahme einer Erwerbstätigkeit im Mindestbeobachtungszeitraum bestand.
+
+Die Rehabilitat:innen wurden bis zum 31. Dezember 2017 im Hinblick auf die RTW als primäres Studienergebnis weiterverfolgt.
+
+Personen, die vor Beginn der REHA-II bereits eine Rente bezogen, wurden ausgeschlossen (n = 4.396). Ebenso wurden Personen ausgeschlossen, die die REHA-II aufgrund von medizinischen Problemen oder anderen Gründen nicht regulär beendeten (n = 2.797) oder bei denen die Dauer der Leistung einen Zeitraum von 6 Wochen überschritt (n = 73).
+
+## Variablen und statistische Analysen
+
+### Outcomes
+
+Für die geplante Analyse bezieht sich die RTW auf die ICF Klassifikation d850 „Bezahlte Tätigkeit" [@worldhealthorganization2001]. Gemessen wird der Wiedereintritt in eine bezahlte Arbeit in Form von Beschäftigung, Gewerbetätigkeit, berufliche Tätigkeit oder eine andere Art der Erwerbstätigkeit.
+
+Die Operationalisierung der RTW erfolgt anhand des Datenbestands (SUFRSDV17BYB) zum Rentenversicherungs- und Beitragsverlaufs der Versicherten. Der Datenbestand enthält für die gesamte Stichprobe einen 11-jährigen Verlauf (2007--2017) der Beitragsarten und -zeiten. Für die statistische Analyse wird eine Laufvariable aus den monatsweisen freiwilligen und Pflicht-Beitragszeiten sowie den entsprechenden Anrechnungszeittatbeständen erstellt. Diese Variable verschlüsselt die Zeit (in Monaten) vom Ende der Reha-Anrechnungszeit nach Abschluss der REHA-II bis zum Beginn einer versicherungspflichtigen Beschäftigung oder einer versicherungspflichtigen selbstständigen Tätigkeit.
+
+Zusätzlich werden für den Beobachtungszeitraum die zu RTW konkurrierenden Outcomes Tod, Bezug einer Erwerbsminderungsrente und Bezug einer Altersrente erhoben.
+
+### Kovariablen
+
+Die Kovariablen wurden auf der Grundlage bisheriger Evidenz [@vanmuijen2013] für Prädiktoren der RTW und ihrer vermuteten Wirkung auf den Rehabilitationsprozess ausgewählt. Die Variablen wurden, angelehnt an die ICF-Komponenten „Funktionsfähigkeit und Behinderung" (Kapitel 8 und 9) und „Kontextfaktoren" (Kapitel 5), in die Domänen Körperfunktionen und -strukturen, Aktivitäten und Partizipation, Personenbezogene Faktoren und Umweltfaktoren unterschieden [@worldhealthorganization2001].
+
+Die Kovariablen der Körperfunktionen und -strukturen waren die ärztlich dokumentierten Sekundärdiagnosen des Entlassungsberichts (Komorbiditäten) sowie das Behandlungsergebnis der primären Tumordiagnose der REHA-II. Auf der Aktivitäts- und Partizipationsebene wurden der Erwerbsstatus- und Umfang vor Antragsstellung auf die REHA-II, die Arbeitsunfähigkeitszeiten in den letzten 12 Monaten vor Beginn der REHA-II und die medizinische Einschätzung aus den ärztlichen Entlassungsberichts der REHA-II über die Arbeitsfähigkeit und die Leistungsfähigkeit im zuletzt ausgeführten Beruf genutzt.
+
+Als Personenbezogene Faktoren wurden das Alter zu Beginn der REHA-II, das Geschlecht, die Schulbildung, die berufliche Stellung und die zuletzt ausgeübte Tätigkeit der/des Rehabilitant:in, anhand der von der DRG angepassten Berufsgruppenklassifikation nach Blossfeld [@klassifi2013], berücksichtigt. Der Familienstand, die Teilnahme an einer Leistung zur Teilhabe am Arbeitsleben und der Wohnort (altes/neues Bundesgebiet und Siedlungsstrukturtyp) zu Beginn der REHA-II wurde den Umweltfaktoren zugeordnet.
+
+Abbildung 1 zeigt die Interaktion der verschiedenen Domänen.
+
+Tabelle 1 zeigt die Ausprägungen und Verteilung aller berücksichtigten Merkmale.
+
 ### Statistische Analyse
+
+Für die nicht adjustierten Analysen und Ausgangscharakteristika der Patient:innen soll ein Chi²-Test auf Zusammenhänge zwischen Geschlecht, Bildung, Alter bei Rehabilitationsbeginn, beruflichen Tätigkeitsstatus und weiteren noch zu identifizierende Variablen angewandt werden. Zur Ermittlung adjustierter Analysen werden Cox-Proportional-Hazards-Modelle verwendet, wobei das interessierende Ereignis des Modells die Zeit bis zur Wiederaufnahme der beruflichen Tätigkeit ist (Cox 1972). Eine Zensierung tritt ein, wenn am Ende der Beobachtungszeit (Dezember 2017) keine berufliche Tätigkeit dokumentiert wurde.
 
 -   Adjustierung der Ergebnisse über Korrekturgewicht
 
@@ -178,17 +159,19 @@ CARES_rtw <- cancer_CASES_MCB_KOB %>%
 
         -   {tidyverse} von [@wickham2019]
 
+        -   {haven} von [@wickham2022]
+
         -   {gt} von [@iannone2022]
 
         -   {gtsummary} von [@sjoberg2021]
 
         -   {labelled} von [@larmarange2022]
 
--   Cox-Hazard-Regression
+-   Cox-Hazard-Regression [Zitieren]
 
 # Ergebnisse
 
-Nach Anwendung der Ein- und Ausschlusskriterien verblieben 83.538 Patient:innen im endgültigen Datensatz. Davon erhielten XX eine medizinische Empfehlung zur Durchführung einer Leistungen zur Teilhabe am Arbeitsleben (LTA-III) in der Phase III der Rehabilitation und XX nahmen an der LTA-III teil.
+Nach Anwendung der Ein- und Ausschlusskriterien verblieben r nrow(CARES_rtw) Patient:innen im endgültigen Datensatz. Davon erhielten XX eine medizinische Empfehlung zur Durchführung einer Leistungen zur Teilhabe am Arbeitsleben (LTA-III) in der Phase III der Rehabilitation und XX nahmen an der LTA-III teil.
 
 Im Verlauf des Studienzeitraums...
 
@@ -196,74 +179,24 @@ Im Verlauf des Studienzeitraums...
 
 -   Rente (EM, Alter)
 
+```{r table 1, echo=FALSE, message=FALSE}
 ### Tabelle 1
 
-```{r table 1, echo=TRUE}
-### Datensatzbeschreibung
 
-CARES_rtw %>%
-  select(Geschlecht,
-         AlterRehaStart_Jahr,
-         mcfmsd,
-         mcdg1_icd,
-         psychischeErkrankung,    # Mediator
-         mcdg1_erg,               # Mediator
-         tlrt,
-         ZeitRehaStartRente,
-         Tod,
-         ZeitRehaStartTod,
-         sb,                      # Mediator
-         mcsvbh,                  # Mediator
-         mcbfkl_gr,               # Mediator
-         mcaivoaq,
-         mcaiufzt,                # Mediator
-         mcaift,                  # Mediator
-         mcleft_lb,               # Mediator
-         mcleft_at,               # Mediator
-         mcstbf,                  # Mediator
-         mcahb,
-         mcakk,                   # Mediator
-         mcaqda,
-         mc3voncms,
-         mc5voncms,
-         mc6voncms,
-         mc7voncms,
-         mc8voncms,
-         mc9voncms,
-         mc10voncms,
-         mc11voncms,
-         mc12voncms,
-         mc1pqle,
-         mc2pqle,
-         mc3pqle,
-         mc4pqle,
-         mc5pqle,
-         mc6pqle,
-         mc7pqle,
-         mcwhot_ostwest,
-         mcwhot_skt,
-         mcmsot_bland) %>% 
-  mutate_at(vars("sb", "mcsvbh", "mcbfkl_gr", "mcaivoaq", "mcaift", "mcahb", "mcakk", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "mcmsot_bland", "mcstbf", "mcaiufzt", "mcleft_lb", "mcleft_at", "mcdg1_icd", "mcdg1_erg", "tlrt", "mc3voncms", "mc5voncms", "mc6voncms", "mc7voncms", "mc8voncms", "mc9voncms", "mc10voncms", "mc11voncms", "mc12voncms", "mc1pqle", "mc2pqle", "mc3pqle", "mc4pqle", "mc5pqle", "mc6pqle", "mc7pqle"), haven::as_factor) %>%
-  tbl_summary(
-    by = Geschlecht,
-    statistic = all_continuous() ~ "{mean} ({sd})",
-    label = list(
-      AlterRehaStart_Jahr ~ "Alter bei Beginn der ersten Rehabilitationsleistung",
-      psychischeErkrankung ~ "Psychische oder Verhaltensstörungen nach ICD-10 als weitere medizinische Entlassungsdiagnose",
-      mcdg1_icd ~ "Medizinische Entlassungsdiagnose der Rehabilitation",
-      ZeitRehaStartRente ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Rentenbeginn in Monaten",
-      Tod ~ "Versterben im Beobachtungszeitraum",
-      ZeitRehaStartTod ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Todeszeitpunkt in Monaten",
-      mcbfkl_gr ~ "Berufsgruppenklassifikation nach dem Statistikband zur Rehabilitation der Rentenversicherung (Grundlage ist die KldB 88)",
-      mcaqda ~ "Zeitraum von der Antragstellung eines Antrags auf medizinische Rehabilitation bis zu seiner Bewilligung in Tagen"),
-    digits = list(
-      AlterRehaStart_Jahr ~ 1,
-      ZeitRehaStartTod ~ 0),
-    missing = "no") %>% 
-  add_overall() %>% 
-  modify_header(label = "**Variable**") %>% 
-  modify_spanning_header(c("stat_1", "stat_2") ~ "**Geschlecht**") %>% 
-  bold_labels()
 ```
 
-Variablenauswahl treffen
+
+# Tabelle 2
+
+```{r table 2, echo=FALSE, message=FALSE}
+### Tabelle 2
+
+
+```
+
+
+# Diskussion
+
+
+
+# Literaturverzeichnis

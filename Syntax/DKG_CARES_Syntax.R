@@ -10,6 +10,8 @@
 # install.packages("labelled")
 # install.packages("survival")
 # install.packages("survminer")
+# install.packages("dagitty")
+# install.packages("ggdag")
 
 
 library(haven)
@@ -18,9 +20,13 @@ library(naniar)
 library(gt)
 library(gtsummary)
 library(kableExtra)
+library(flextable)
 library(labelled)
 library(survival)
 library(survminer)
+library(dagitty)
+library(ggdag)
+
 
 ## gtsummary Theme
 theme_gtsummary_journal(journal = "jama")
@@ -33,6 +39,8 @@ theme_gtsummary_language(
   ci.sep = NULL,
   set_theme = TRUE
 )
+
+theme_gtsummary_compact(set_theme = TRUE, font_size = NULL)
 
 ## Reset theme
 #reset_gtsummary_theme()
@@ -156,7 +164,7 @@ cancer_CASES_MCB_KOB <- MCB %>%
 
 ## Alle Cases im endgültigen Datensatz mit Beginn und Ende der ersten medizinischen Reha-Leistung in Monaten
 CasesForJoin <- cancer_CASES_MCB_KOB %>% 
-  select(case, RehaStart, RehaEnde)
+  select(case, RehaStart, mcbemsj, mcbemsm, RehaEnde, mcenmsj, mcenmsm, mcdg1_icd)
 
 ## Episodenauswahl der BFB-Daten
 BFB_Episode <- BFB %>%
@@ -172,7 +180,7 @@ BFB_Episode <- BFB %>%
   # Erste Episode wird durch LTASTart (Beginn der Leistungen zur Teilhabe am Arbeitsleben) identifiziert
   arrange(case, LTAStart) %>% 
   distinct(case, .keep_all = TRUE) %>% 
-  select(-c(RehaStart,RehaEnde))
+  select(-c(RehaStart, mcbemsj, mcbemsm, RehaEnde, mcenmsj, mcenmsm, mcdg1_icd))
 
 ## Join
 
@@ -202,139 +210,119 @@ CARES_rtw <- cancer_CASES_MCB_KOB_BFB %>%
     # bd (alte Berichtform) umcodieren in sb (neue Berichtform)
     sb = replace(sb, bd %in% c(3:6), 4),
     
+    # Leistung zur Teilhabe am Arbeitsleben
+    LTA = if_else(
+      LTAStart > 1, 1, 0, missing = 0),
+    
     # Zeitraum zwischen Ende der ersten med. Reha und dem Beginn der Leistungen zur Teilhabe am Arbeitsleben
     ZeitRehaEndeLTAStart = case_when(
       LTAStart > 1 ~ LTAStart - RehaEnde),
     
+    # Rentenart
+    
+    Rente = case_when(
+      tlrt == 0 ~ 0,
+      tlrt %in% c(10,11,12,13,18) ~ 1,
+      tlrt %in% c(20:28) ~ 2),
+    
+    ZeitRehaStartAltersRente = case_when(
+      Rente == 1 ~ RTZeitpkt - RehaStart),
+    
+    ZeitRehaStartEMRente = case_when(
+      Rente == 2 ~ RTZeitpkt - RehaStart),
+    
     
     ## Komorbiditäten
     
-    Komorb = case_when(
-      mcdg2_icd %in% c(999) & mcdg3_icd %in% c(999) & mcdg4_icd %in% c(999) & mcdg5_icd %in% c(999) ~ 0,
-      mcdg2_icd %in% c(2:6) | mcdg3_icd %in% c(2:6) | mcdg4_icd %in% c(2:6) | mcdg5_icd %in% c(2:6) ~ 1,
+      # Keine bekannten Komorbiditäten
+    Komorb00 = if_else(
+      mcdg2_icd %in% c(999) & mcdg3_icd %in% c(999) & mcdg4_icd %in% c(999) & mcdg5_icd %in% c(999), 1, 0, missing = 0),
       
-    )
+    # Bestimmte infektiöse und parasitäre Krankheiten (A00.-B99.)
+    Komorb01 = if_else(
+      mcdg2_icd %in% c(2:6) | mcdg3_icd %in% c(2:6) | mcdg4_icd %in% c(2:6) | mcdg5_icd %in% c(2:6), 1, 0, missing = 0),
     
-#     
-#     
-#     # Variable: Bestimmte infektiöse und parasitäre Krankheiten (ICD-10 A00.-B99.) bei Beginn der ersten med. Reha
-#     KomorbInfekt = if_else(
-#       mcdg2_icd %in% c(2:6) | mcdg3_icd %in% c(2:6) | mcdg4_icd %in% c(2:6) | mcdg5_icd %in% c(2:6), 1, 0),
-#     
-#     # Variable: Weitere bösartige Tumorerkrankung (ICD-10 C00.-C97.) bei Beginn der ersten med. Reha
-#     KomorbBN = if_else(
-#       mcdg2_icd %in% c(7:31) | mcdg3_icd %in% c(7:31) | mcdg4_icd %in% c(7:31) | mcdg5_icd %in% c(7:31), 1, 0),
-#     
-#     # Variable: Zusätzliche Neubildung (In-Situ, Gutartig, unsicherem/unbekanntem Verhaltens) (ICD-10 D00.-D89.) bei Beginn der ersten med. Reha
-#     KomorbGN = if_else(
-#       mcdg2_icd %in% c(32:41) | mcdg3_icd %in% c(32:41) | mcdg4_icd %in% c(32:41) | mcdg5_icd %in% c(32:41), 1, 0),
-#     
-#     # Variable: Diabetes mellitus (ICD-10 E00.-E14.) bei Beginn der ersten med. Reha
-#     KomorbDiabetes = if_else(
-#       mcdg2_icd %in% c(42:45) | mcdg3_icd %in% c(42:45) | mcdg4_icd %in% c(42:45) | mcdg5_icd %in% c(42:45), 1, 0),
-#     
-#     # Variable: Ernährungserkrankung und Mangelernährung (ICD-10 E40.-64.) bei Beginn der ersten med. Reha
-#     KomorbErnaerung = if_else(
-#       mcdg2_icd %in% c(47) | mcdg3_icd %in% c(47) | mcdg4_icd %in% c(47) | mcdg5_icd %in% c(47), 1, 0),
-#     
-#     # Variable: Überernährung (ICD-10 E65.-68.) bei Beginn der ersten med. Reha
-#     KomorbUeberernaerung = if_else(
-#       mcdg2_icd %in% c(48) | mcdg3_icd %in% c(48) | mcdg4_icd %in% c(48) | mcdg5_icd %in% c(48), 1, 0),
-#     
-#     # Variable: Psychische oder Verhaltensstörung (ICD-10 F00.-F99.) bei Beginn der ersten med. Reha
-#     KomorbPsych = if_else(
-#       mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0),
-#     
-#     
-#         # # Variable: Demenz oder Organisches Psychosyndrom (ICD-10 F00.-F09.) bei Beginn der ersten med. Reha
-#         # KomorbDemenz = if_else(
-#         #   mcdg2_icd %in% c(50:52) | mcdg3_icd %in% c(50:52) | mcdg4_icd %in% c(50:52) | mcdg5_icd %in% c(50:52), 1, 0),
-#         # 
-#         # # Variable: Psychische oder Verhaltensstörung durch psychotrope Substanzen (ICD-10 F10.-F19.) bei Beginn der ersten med. Reha
-#         # KomorbSucht = if_else(
-#         #   mcdg2_icd %in% c(53:54) | mcdg3_icd %in% c(53:54) | mcdg4_icd %in% c(53:54) | mcdg5_icd %in% c(53:54), 1, 0),
-#         # 
-#         # # Variable: Schizophrenie, schizotype oder wahnhafte Störung (ICD-10 F20.-F29.) bei Beginn der ersten med. Reha
-#         # KomorbSchizo = if_else(
-#         #   mcdg2_icd %in% c(55:56) | mcdg3_icd %in% c(55:56) | mcdg4_icd %in% c(55:56) | mcdg5_icd %in% c(55:56), 1, 0),
-#         # 
-#         # # Variable: Affektive Störung (ICD-10 F30.-F39.) bei Beginn der ersten med. Reha
-#         # KomorbDepri = if_else(
-#         #   mcdg2_icd %in% c(57:60) | mcdg3_icd %in% c(57:60) | mcdg4_icd %in% c(57:60) | mcdg5_icd %in% c(57:60), 1, 0),
-#         # 
-#         # # Variable: Neurotische, Belastungs- oder somatoforme Störung (ICD-10 F40.-F48.) bei Beginn der ersten med. Reha
-#         # KomorbAngst = if_else(
-#         #   mcdg2_icd %in% c(61:67) | mcdg3_icd %in% c(61:67) | mcdg4_icd %in% c(61:67) | mcdg5_icd %in% c(61:67), 1, 0),
-#         # 
-#         # # Variable: Verhaltensauffälligkeit mit körperlicher Störung  (ICD-10 F50.-F59.) bei Beginn der ersten med. Reha
-#         # KomorbEssstoer = if_else(
-#         #   mcdg2_icd %in% c(68:69) | mcdg3_icd %in% c(68:69) | mcdg4_icd %in% c(68:69) | mcdg5_icd %in% c(68:69), 1, 0),
-#         # 
-#         # # Variable: Persönlichkeits- oder Verhaltensstörung (ICD-10 F60.-F69.) bei Beginn der ersten med. Reha
-#         # KomorbPersoest = if_else(
-#         #   mcdg2_icd %in% c(70) | mcdg3_icd %in% c(70) | mcdg4_icd %in% c(70) | mcdg5_icd %in% c(70), 1, 0),
-#         # 
-#         # # Variable: Intelligenzminderung (ICD-10 F70.-F79.) bei Beginn der ersten med. Reha
-#         # KomorbIntell = if_else(
-#         #   mcdg2_icd %in% c(71) | mcdg3_icd %in% c(71) | mcdg4_icd %in% c(71) | mcdg5_icd %in% c(71), 1, 0),
-#         # 
-#         # # Variable: Entwicklungsstörung (ICD-10 F80.-F89.) bei Beginn der ersten med. Reha
-#         # KomorbEntwick = if_else(
-#         #   mcdg2_icd %in% c(72) | mcdg3_icd %in% c(72) | mcdg4_icd %in% c(72) | mcdg5_icd %in% c(72), 1, 0),
-#         # 
-#         # # Variable: Verhaltens- oder emotionale Störung (ICD-10 F90.-F98.) bei Beginn der ersten med. Reha
-#         # KomorbEmo = if_else(
-#         #   mcdg2_icd %in% c(73) | mcdg3_icd %in% c(73) | mcdg4_icd %in% c(73) | mcdg5_icd %in% c(73), 1, 0),
-#         # 
-#         # # Variable: Nicht näher bezeichnete psychische Störungen (ICD-10 F99.) bei Beginn der ersten med. Reha
-#         # KomorbsonstPsych = if_else(
-#         #   mcdg2_icd %in% c(74) | mcdg3_icd %in% c(74) | mcdg4_icd %in% c(74) | mcdg5_icd %in% c(74), 1, 0),
-# 
-# 
-# 
-# 
-# 
-# # 
-# #     # Variable: xx (ICD-10 xx-xx) bei Beginn der ersten med. Reha
-# #     KomorbXx = if_else(
-# #       mcdg2_icd %in% c(xx) | mcdg3_icd %in% c(xx) | mcdg4_icd %in% c(xx) | mcdg5_icd %in% c(xx), 1, 0),
-# # 
-# #     # Variable: xx (ICD-10 xx-xx) bei Beginn der ersten med. Reha
-# #     KomorbXx = if_else(
-# #       mcdg2_icd %in% c(xx) | mcdg3_icd %in% c(xx) | mcdg4_icd %in% c(xx) | mcdg5_icd %in% c(xx), 1, 0),
-# # 
-# #     # Variable: xx (ICD-10 xx-xx) bei Beginn der ersten med. Reha
-# #     KomorbXx = if_else(
-# #       mcdg2_icd %in% c(xx) | mcdg3_icd %in% c(xx) | mcdg4_icd %in% c(xx) | mcdg5_icd %in% c(xx), 1, 0),
+    # Weitere bösartige Tumorerkrankung (C00.-C97.)
+    Komorb02 = if_else(
+      mcdg2_icd %in% c(7:31) | mcdg3_icd %in% c(7:31) | mcdg4_icd %in% c(7:31) | mcdg5_icd %in% c(7:31), 1, 0, missing = 0),
     
+    # Zusätzliche Neubildung (In-Situ, Gutartig, unsicherem/unbekanntem Verhaltens) (D00.-D89.)
+    Komorb03 = if_else(
+      mcdg2_icd %in% c(32:41) | mcdg3_icd %in% c(32:41) | mcdg4_icd %in% c(32:41) | mcdg5_icd %in% c(32:41), 1, 0, missing = 0),
+    
+    # Diabetes mellitus (E00.-E14.)
+    Komorb04 = if_else(mcdg2_icd %in% c(42:45) | mcdg3_icd %in% c(42:45) | mcdg4_icd %in% c(42:45) | mcdg5_icd %in% c(42:45), 1, 0, missing = 0),
+    
+    # Ernährungserkrankung und Mangelernährung (E40.-64.)
+    Komorb05 = if_else(
+      mcdg2_icd %in% c(47) | mcdg3_icd %in% c(47) | mcdg4_icd %in% c(47) | mcdg5_icd %in% c(47), 1, 0, missing = 0),
+    
+    # Überernährung (ICD-10 E65.-68.)
+    Komorb06 = if_else(
+      mcdg2_icd %in% c(48) | mcdg3_icd %in% c(48) | mcdg4_icd %in% c(48) | mcdg5_icd %in% c(48), 1, 0, missing = 0),
+    
+    # Psychische oder Verhaltensstörung (F00.-F99.)
+    Komorb07 = if_else(
+      mcdg2_icd %in% c(50:74) | mcdg3_icd %in% c(50:74) | mcdg4_icd %in% c(50:74) | mcdg5_icd %in% c(50:74), 1, 0, missing = 0),
+    
+    # Krankheit des zentralen Nervensystems (G00.-G37.)
+    Komorb08 = if_else(
+      mcdg2_icd %in% c(75:79) | mcdg3_icd %in% c(75:79) | mcdg4_icd %in% c(75:79) | mcdg5_icd %in% c(75:79), 1, 0, missing = 0),
+    
+    # Migräne und Schlafstörungen (G43.-44., G47.)
+    Komorb09 = if_else(
+      mcdg2_icd %in% c(81) | mcdg3_icd %in% c(81) | mcdg4_icd %in% c(81) | mcdg5_icd %in% c(81), 1, 0, missing = 0),
+    
+    # Krankheit des peripheren Nervensystems (G50.-82., ohne G80., G83.)
+    Komorb10 = if_else(
+      mcdg2_icd %in% c(83:88) | mcdg3_icd %in% c(83:88) | mcdg4_icd %in% c(83:88) | mcdg5_icd %in% c(83:88), 1, 0, missing = 0),
+    
+    # Ischämische oder pulmonale Herzkrankheiten (I20.-28.)
+    Komorb11 = if_else(
+      mcdg2_icd %in% c(98:100) | mcdg3_icd %in% c(98:100) | mcdg4_icd %in% c(98:100) | mcdg5_icd %in% c(98:100), 1, 0, missing = 0),
+    
+    # Chronische Krankheiten der unteren Atemwege (J43.-47.)
+    Komorb12 = if_else(
+      mcdg2_icd %in% c(100:111) | mcdg3_icd %in% c(100:111) | mcdg4_icd %in% c(100:111) | mcdg5_icd %in% c(100:111), 1, 0, missing = 0),
+    
+    # Nichtinfektiöse Enteritis, Kolitis oder Darmerkrankung (K50.-67.)
+    Komorb13 = if_else(
+      mcdg2_icd %in% c(117:119) | mcdg3_icd %in% c(117:119) | mcdg4_icd %in% c(117:119) | mcdg5_icd %in% c(117:119), 1, 0, missing = 0),
+    
+    # Krankheiten des Muskel-Skelett-Systems und des Bindegewebes (M00.-99.)
+    Komorb14 = if_else(
+      mcdg2_icd %in% c(129:153) | mcdg3_icd %in% c(129:153) | mcdg4_icd %in% c(129:153) | mcdg5_icd %in% c(129:153), 1, 0, missing = 0),
+    
+    # Niereninsuffizienz (N17.-19.)
+    Komorb15 = if_else(
+      mcdg2_icd %in% c(154) | mcdg3_icd %in% c(154) | mcdg4_icd %in% c(154) | mcdg5_icd %in% c(154), 1, 0, missing = 0)
     ) %>%
   
   # Hinzufügen von lables zur gtsummary Ausgabe
   set_variable_labels(
-  #   # Komorbiditäten
-  #   KomorbInfekt = "Bestimmte infektiöse und parasitäre Krankheiten (ICD-10 A00-B99)",
-  #   KomorbBN = "Weitere bösartige Tumorerkrankung (ICD-10 C00.-C97.)",
-  #   KomorbGN = "Zusätzliche Neubildung (In-Situ, Gutartig, unsicheren/unbekannten Verhaltens) (ICD-10 D00.-D89.)",
-  #   KomorbDiabetes = "Diabetes mellitus (ICD-10 E00.-E14.)",
-  #   KomorbErnaerung = "Ernährungserkrankung und Mangelernährung (ICD-10 E40.-64.)",
-  #   KomorbUeberernaerung = "Überernährung (ICD-10 E65.-68.)",
-  #   KomorbPsych = "Psychische oder Verhaltensstörung (ICD-10 F00.-F99.)",
-  #   KomorbDemenz = "Demenz oder Organisches Psychosyndrom (ICD-10 F00.-F09.)",
-  #   KomorbSucht = "Psychische oder Verhaltensstörung durch psychotrope Substanzen (ICD-10 F10.-F19.)",
-  #   KomorbSchizo = "Schizophrenie, schizotype oder wahnhafte Störung (ICD-10 F20.-F29.)",
-  #   KomorbDepri = "Affektive Störung (ICD-10 F30.-F39.)",
-  #   KomorbAngst = "Neurotische, Belastungs- oder somatoforme Störung (ICD-10 F40.-F48.)",
-  #   KomorbEssstoer = "Verhaltensauffälligkeit mit körperlicher Störung  (ICD-10 F50.-F59.)",
-  #   KomorbPersoest = "Persönlichkeits- oder Verhaltensstörung (ICD-10 F60.-F69.)",
-  #   KomorbIntell = "Intelligenzminderung (ICD-10 F70.-F79.)",
-  #   KomorbEntwick = "Entwicklungsstörung (ICD-10 F80.-F89.)",
-  #   KomorbEmo = "Verhaltens- oder emotionale Störung (ICD-10 F90.-F98.)",
-  #   KomorbsonstPsych = "Nicht näher bezeichnete psychische Störungen (ICD-10 F99.)"#,
-  #   # xx = "xx",
-  #   # xx = "xx",
-  #   # xx = "xx",
-  
-    Komorb = "Komorbiditäten",
+    AlterRehaStart_Jahr = "Alter bei Beginn der ersten med. Reha",
+    Tod = "Versterben im Beobachtungszeitraum",
+    LTA = "Leistung zur Teilhabe am Arbeitsleben",
+    ZeitRehaEndeLTAStart = "Zeitraum zwischen Ende der ersten med. Reha und dem Beginn der Leistungen zur Teilhabe am Arbeitsleben in Monaten",
+    ZeitRehaStartTod = "Zeitraum vom Beginn der ersten med. Reha bis zum Todeszeitpunkt in Monaten",
+    ZeitRehaStartAltersRente = "Zeitraum zwischen Ende der med. Reha und dem Bezug einer Altersrente in Monaten",
+    ZeitRehaStartEMRente = "Zeitraum zwischen Ende der med. Reha und dem Bezug einer Erwerbsminderungsrente in Monaten",
+    Komorb00 = "Keine bekannten Komorbiditäten",
+    Komorb01 = "Bestimmte infektiöse und parasitäre Krankheiten (A00.-B99.)",
+    Komorb02 = "Weitere bösartige Tumorerkrankung (C00.-C97.)",
+    Komorb03 = "Zusätzliche Neubildung (In-Situ, Gutartig, unsicherem/unbekanntem Verhaltens) (D00.-D89.)",
+    Komorb04 = "Diabetes mellitus (E00.-E14.)",
+    Komorb05 = "Ernährungserkrankung und Mangelernährung (E40.-64.)",
+    Komorb06 = "Überernährung (E65.-68.)",
+    Komorb07 = "Psychische oder Verhaltensstörung (F00.-F99.)",
+    Komorb08 = "Krankheit des zentralen Nervensystems (G00.-G37.)",
+    Komorb09 = "Migräne und Schlafstörungen (G43.-44., G47.)",
+    Komorb10 = "Krankheit des peripheren Nervensystems (G50.-82., ohne G80., G83.)",
+    Komorb11 = "Ischämische oder pulmonale Herzkrankheiten (I20.-28.)",
+    Komorb12 = "Chronische Krankheiten der unteren Atemwege (J43.-47.)",
+    Komorb13 = "Nichtinfektiöse Enteritis, Kolitis oder Darmerkrankung (K50.-67.)",
+    Komorb14 = "Krankheiten des Muskel-Skelett-Systems und des Bindegewebes (M00.-99.)",
+    Komorb15 = "Niereninsuffizienz (N17.-19.)"
   ) %>%
   
   # Anpassung der Variablenlabel für die gtsummary Ausgabe
@@ -352,9 +340,10 @@ CARES_rtw <- cancer_CASES_MCB_KOB_BFB %>%
   ) %>% 
   
   set_value_labels(
-    Komorb = c(
-      "Keine Komorbiditäten" = 0,
-      "Bestimmte infektiöse und parasitäre Krankheiten (ICD-10 A00.-B99.)" = 1
+    Rente = c(
+      "kein Rentenbezug" = 0,
+      "Rente wegen Alters" = 1,
+      "Rente wegen verminderter Erwerbsfähigkeit" = 2
     )
   ) %>% 
   
@@ -362,10 +351,91 @@ CARES_rtw <- cancer_CASES_MCB_KOB_BFB %>%
   drop_unused_value_labels()
 
 
+### Tabelle 1
+
+CARES_rtw %>% 
+  select(
+    AlterRehaStart_Jahr,       # Alter bei Beginn der ersten Rehabilitationsleistung
+    Geschlecht,                # Geschlecht
+    mcdg1_icd,                 # Medizinische Entlassungsdiagnose der Rehabilitation
+    mcdg1_erg,                 # 1. Diagnose: Behandlungsergebnis
+    Komorb00,                  # Komorbiditäten
+    Komorb01,
+    Komorb02,
+    Komorb03,
+    Komorb04,
+    Komorb05,
+    Komorb06,
+    Komorb07,
+    Komorb08,
+    Komorb09,
+    Komorb10,
+    Komorb11,
+    Komorb12,
+    Komorb13,
+    Komorb14,
+    Komorb15,
+    sb,                        # Schulbildung	
+    mcaivoaq,                  # Erwerbsstatus u. -umfang vor Antragsstellung 
+    mcbfkl_gr,                 # Berufsgruppenklassifikation
+    mcstbf,                    # Stellung im Beruf
+    mcaiufzt,                  # Arbeitsunfähigkeit in den letzten 12 Monaten
+    #mcaift,                    # Arbeitsfähigkeit
+    mcleft_lb,                 # Leistungsfähigkeit im letzten Beruf
+    mc8voncms,                   # Empfehlung LTA
+    LTA,                       # Leistung zur Teilhabe am Arbeitsleben
+    ZeitRehaEndeLTAStart,      # Zeitraum zwischen Ende der ersten med. Reha und dem Beginn der Leistungen zur Teilhabe am Arbeitsleben
+    mcfmsd,                    # Familienstand
+    mcwhot_ostwest,            # Wohnort: altes/neues Bundesgebiet
+    mcwhot_skt,                # Siedlungsstruktureller Kreistyp
+    #sa,                        # Staatsangehörigkeit des Antragstellers
+    Tod,                       # Versterben im Beobachtungszeitraum
+    ZeitRehaStartTod,          # Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Todeszeitpunkt in Monaten
+    Rente,                     # Teilrentenkennzeichen in Altersrente/EM-Rente
+    ZeitRehaStartAltersRente,  # Zeitraum zwischen Ende der med. Reha und dem Bezug einer Altersrente
+    ZeitRehaStartEMRente       # Zeitraum zwischen Ende der med. Reha und dem Bezug einer Erwerbsminderungsrente
+  ) %>% 
+  mutate_at(vars("mcdg1_icd", "mcdg1_erg", "sb", "mcaivoaq", "mcbfkl_gr", "mcstbf", "mcaiufzt", "mcleft_lb", "mc8voncms", "mcfmsd", "mcwhot_ostwest", "mcwhot_skt", "Rente"), haven::as_factor) %>%
+  tbl_summary(
+    #by = mcdg1_icd,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    label = list(
+      mcdg1_icd ~ "Primäre Tumorerkrankung",
+      mcbfkl_gr ~ "Berufsgruppenklassifikation nach dem Statistikband zur Rehabilitation der Rentenversicherung (Grundlage ist die KldB 88)",
+      mcaivoaq ~ "Erwerbsstatus und -umfang vor Antragsstellung"
+    ),
+    missing = "no",
+    type = list(LTA ~ "dichotomous")
+  ) %>%
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+
+### Outcomes
+
+CARES_rtw %>% 
+  select(
+    mcdg1_icd,                 # Medizinische Entlassungsdiagnose der Rehabilitation
+    Tod,                       # Versterben im Beobachtungszeitraum
+    ZeitRehaStartTod,          # Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Todeszeitpunkt in Monaten
+    Rente,                     # Teilrentenkennzeichen in Altersrente/EM-Rente
+    ZeitRehaStartAltersRente,  # Zeitraum zwischen Ende der med. Reha und dem Bezug einer Altersrente
+    ZeitRehaStartEMRente       # Zeitraum zwischen Ende der med. Reha und dem Bezug einer Erwerbsminderungsrente
+  ) %>% 
+  mutate_at(vars("mcdg1_icd", "Rente"), haven::as_factor) %>%
+  tbl_summary(
+    by = mcdg1_icd,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    label = list(
+      mcdg1_icd ~ "Primäre Tumorerkrankung"
+    ),
+    missing = "no"
+  ) %>%
+  add_p() %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
 
 
-
-### Datensatzbeschreibung
+### ausführliche Datensatzbeschreibung
 
 CARES_rtw %>%
   select(Geschlecht,
@@ -373,20 +443,6 @@ CARES_rtw %>%
          mcfmsd,
          mcdg1_icd,
          Komorb,
-         # # Komorbiditäten - Mediator
-         # KomorbInfekt,
-         # KomorbBN,
-         # KomorbGN,
-         # KomorbDiabetes,
-         # KomorbErnaerung,
-         # KomorbUeberernaerung,
-         # KomorbDemenz,
-         # KomorbSucht,
-         # KomorbSchizo,
-         # KomorbDepri,
-         # KomorbAngst,
-         # KomorbEssstoer,
-         # KomorbPersoest,
          mcdg1_erg,               # Mediator
          tlrt,
          ZeitRehaStartRente,
@@ -429,6 +485,7 @@ CARES_rtw %>%
     statistic = all_continuous() ~ "{mean} ({sd})",
     label = list(
       AlterRehaStart_Jahr ~ "Alter bei Beginn der ersten Rehabilitationsleistung",
+      mcsvbh ~ "Sozialversicherungspflichtige Beschäftigung bei Beginn der ersten Rehabilitationsleistung",
       mcdg1_icd ~ "Medizinische Entlassungsdiagnose der Rehabilitation",
       ZeitRehaStartRente ~ "Zeitraum vom Beginn der ersten medizinischen Rehabilitation bis zum Rentenbeginn in Monaten",
       Tod ~ "Versterben im Beobachtungszeitraum",
@@ -464,8 +521,7 @@ legend("bottomleft", title="ICD-Gruppen", c("C00-14","C15, C16","C17, C18","C19,
 ggsurvplot(fit_icd, data = CARES_rtw, pval = TRUE)
 
 
-
-####
+### RTW - time to event
 
 
 # BYB-Auswahl aller Episoden der Personen, die im endgültigen Datensatz zur Analyse eingeschlossen sind
@@ -473,9 +529,79 @@ ggsurvplot(fit_icd, data = CARES_rtw, pval = TRUE)
 BYB_Episoden <- BYB %>% 
   inner_join(CasesForJoin, by = "case")
 
+BYB_1_Jahr_nach_Reha <- BYB_Episoden %>% 
+  filter(
+    byja == (mcenmsj+1)
+  ) %>% 
+  mutate(
+    rtw182 = if_else(
+      bybhbytg1 > 181 | bybhbytg2 > 181, 1, 0)
+  ) %>% 
+  # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe
+  drop_unused_value_labels()
+
+BYB_2_Jahr_nach_Reha <- BYB_Episoden %>% 
+  filter(
+    byja == (mcenmsj+2)
+  ) %>% 
+  mutate(
+    rtw182 = if_else(
+      bybhbytg1 > 181 | bybhbytg2 > 181, 1, 0)
+  ) %>% 
+  # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe
+  drop_unused_value_labels()
+
+BYB_3_Jahr_nach_Reha <- BYB_Episoden %>% 
+  filter(
+    byja == (mcenmsj+3)
+  ) %>% 
+  mutate(
+    rtw182 = if_else(
+      bybhbytg1 > 181 | bybhbytg2 > 181, 1, 0)
+  ) %>% 
+  # Entfernen der leeren Diagnoselabels für gtsummary Ausgabe
+  drop_unused_value_labels()
+
+### RTW 1 Jahr
+
+BYB_1_Jahr_nach_Reha %>% 
+  select(
+    rtw182,
+    mcdg1_icd
+  ) %>% 
+  mutate_at(vars("mcdg1_icd"), haven::as_factor) %>%
+  tbl_summary(
+    by = mcdg1_icd,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    label = list(
+      mcdg1_icd ~ "Primäre Tumorerkrankung"
+    ),
+    missing = "no"
+  ) %>%
+  add_p() %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+
+BYB_1_Jahr_nach_Reha %>% 
+  select(
+    rtw182,
+  ) %>% 
+  tbl_summary(
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    missing = "no"
+  ) %>%
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+
+
+
 # Erstellen des Vektors für die Auswertung der Monate bis zur RTW
 
-ed_data <- readRDS("BYB_Episoden.rds")
+ed_data <- BYB_Episoden
+ed_reha_end <- ed_reha
+count_in_end_table = 2 
+EndOfTherapyTime <- data.frame(Case_831 = ((ed_reha_end[1,2]-2007*12):(ed_reha_end[1,2]-2007*12)))
+
 fillValueNoWork = 85 
 beginYear = 2007
 endYear = 2017
@@ -489,7 +615,7 @@ for (indexDataRows in 2:nrow(ed_data)) {
   print(indexDataRows)
   currCaseNum = ed_data[indexDataRows,1]
   currYear = ed_data[indexDataRows,3]
-  if (currCaseNum != prefCaseNum) {
+  if (currCaseNum != prefCaseNum) { # Wenn wir zum nächsten Fall kommen, wird der Vektor mit "end values" ergänzt unter AllCases gespeichert
     if(prefYear < endYear){
       for (yearDiff in ((prefYear +1):endYear)) {
         currentVec[((12*(yearDiff - beginYear) +1)):(12*(yearDiff - (beginYear -1)))]<- fillValueNoWork
@@ -497,49 +623,62 @@ for (indexDataRows in 2:nrow(ed_data)) {
     }
     nameCol <- sprintf("Case_%d", prefCaseNum)
     AllCases[nameCol] <- currentVec
+    limit =0
+    while(ed_data[indexDataRows,1] != ed_reha_end[count_in_end_table,1]){ # einige cases sind nur entweder in MCB/KPB oder in BYB - müssen geskippt werden
+      count_in_end_table = count_in_end_table +1
+      if(limit> 20 ){
+        break
+      }
+      limit = limit +1
+      
+    }
+    if(ed_data[indexDataRows,1] != ed_reha_end[count_in_end_table,1]){
+      count_in_end_table = count_in_end_table +1
+      if(ed_data[indexDataRows,1] != ed_reha_end[count_in_end_table,1]){
+        print(currCaseNum)
+        print(ed_reha_end[count_in_end_table,1] )
+        print("dsoifjoidjfoidsjfpijdspifjdspijfoidsjfoiWRONG: case numer ",ed_reha_end[count_in_end_table,1] )
+      }
+    }
+    nameColNew <- sprintf("Case_%d", currCaseNum)
+    EndOfTherapyTime[nameColNew] <- c((ed_reha_end[count_in_end_table,2]-2007*12):(ed_reha_end[count_in_end_table,2]-2007*12))
+    count_in_end_table = count_in_end_table +1
     currentVec[1:(12*(endYear - beginYear +1))] <- -1
     
     prefYear = beginYear -1
     
   }
-  if (currYear > prefYear +1) {
+  if (currYear > prefYear +1) { # wenn keine Daten vorhanden: fill - default value
     for (yearDiff in (prefYear +1):(currYear-1)) {
       currentVec[(12*(yearDiff - beginYear) +1):(12*(yearDiff - (beginYear -1)))]<- fillValueNoWork
     }
   }
   #print(unlist(currentVec))
-  currentVec[((12*(currYear - beginYear) +1)):(12*(currYear - (beginYear -1)))]<- unlist(ed_data[indexDataRows,(5:16)],use.names = FALSE)
+  # Falls daten vorhanden - fill mit richtigen Werten
+  currentVec[((12*(currYear - beginYear) +1)):(12*(currYear - (beginYear -1)))]<- unlist(ed_data[indexDataRows,(5:16)],use.names = FALSE) 
   #print(unlist(currentVec))
   prefCaseNum = currCaseNum
   prefYear = currYear
 }
 
+# Berechnung: Erste Veränderung im Zeitverlauf
+CaseTmeTillChange <- data.frame(test= 1:1)
+for (indexCase in 1:ncol(EndOfTherapyTime)) {
+  endOfTherapyfromOneTo132 <- EndOfTherapyTime[1,indexCase] 
+  nameCol <- names(EndOfTherapyTime)[indexCase]
+  if (endOfTherapyfromOneTo132 >= (12*(endYear - beginYear +1))) {
+    CaseTmeTillChange[nameCol] <- -1
+  }
+  currentVec = AllCases[,indexCase+1]
+  prefOccupation = currentVec[endOfTherapyfromOneTo132]
+  for (currentMonth in (endOfTherapyfromOneTo132+1):length(currentVec)) {
+    if(prefOccupation != currentVec[currentMonth]){
+      CaseTmeTillChange[nameCol] <- currentMonth - endOfTherapyfromOneTo132 
+      break
+    }
+    if(currentMonth == length(currentVec)){
+      CaseTmeTillChange[nameCol] <- -2 # wenn keine Veränderung bis zum Ende aufgetreten ist
+    }
+  }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-##### Experimental #####
-
-
-x <- CARES_rtw %>% 
-  group_by(mcdg5_icd) %>% 
-  summarise(count = n())
-
-view(x)
-
-
-x <- CARES_rtw %>%
-  group_by(Tod, TimeToEventMortality) %>%
-  tally() %>%
-  spread(Tod, n)
-
-view(x)
